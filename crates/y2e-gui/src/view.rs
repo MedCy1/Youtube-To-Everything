@@ -227,8 +227,9 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         });
 
     // --- Progress & Status ---
-    let progress_width = (s.progress_percent / 100.0).clamp(0.0, 1.0);
-    let progress_bar = el()
+    let filled = s.progress_percent.max(0.1);
+    let remaining = (100.0 - s.progress_percent).max(0.0);
+    let progress_bar = row()
         .key("progress_track")
         .w_full()
         .h(8.0)
@@ -237,11 +238,17 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         .child(
             el()
                 .key("progress_fill")
-                .w(progress_width * 700.0)
+                .grow(filled)
                 .h_full()
                 .radius(4.0)
                 .fill(p.accent)
                 .motion(motion::SNAPPY),
+        )
+        .child(
+            el()
+                .key("progress_empty")
+                .grow(remaining)
+                .h_full(),
         );
 
     let status_line = row()
@@ -261,10 +268,16 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         footer = footer.child(text(msg).font(type_::SECTION).color(p.success));
     }
 
-    if let Some(err) = &s.error_message {
-        let msg = format!("Erreur : {}", err);
+    if let Some(err) = &s.download_error {
+        let msg = format!("Erreur téléchargement : {}", err);
         footer = footer.child(text(msg).font(type_::SECTION).color(p.danger));
     }
+
+    let inspect_err_view = if let Some(err) = &s.inspect_error {
+        text(format!("Erreur inspection : {}", err)).font(type_::LABEL).color(p.danger)
+    } else {
+        text("")
+    };
 
     // --- Container Principal ---
     col()
@@ -275,6 +288,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         .gap(16.0)
         .child(header)
         .child(input_container)
+        .child(inspect_err_view)
         .child(meta_card)
         .child(snipper_box)
         .child(presets_row)

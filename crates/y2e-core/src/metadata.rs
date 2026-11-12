@@ -18,12 +18,16 @@ pub struct VideoMetadata {
     pub duration: Option<f64>,
     pub thumbnail: Option<String>,
     #[serde(default)]
-    pub chapters: Vec<VideoChapter>,
+    pub chapters: Option<Vec<VideoChapter>>,
     #[serde(default)]
     pub webpage_url: Option<String>,
 }
 
 impl VideoMetadata {
+    pub fn chapters(&self) -> &[VideoChapter] {
+        self.chapters.as_deref().unwrap_or(&[])
+    }
+
     pub fn duration_seconds(&self) -> u64 {
         self.duration.unwrap_or(0.0).round() as u64
     }
@@ -83,4 +87,26 @@ pub fn format_time_hhmmss(seconds: u64) -> String {
     let minutes = (seconds % 3600) / 60;
     let secs = seconds % 60;
     format!("{:02}:{:02}:{:02}", hours, minutes, secs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize_metadata_with_null_chapters() {
+        let json_data = r#"{
+            "id": "dQw4w9WgXcQ",
+            "title": "Never Gonna Give You Up",
+            "uploader": "Rick Astley",
+            "duration": 213.0,
+            "thumbnail": "https://example.com/thumb.jpg",
+            "chapters": null
+        }"#;
+
+        let meta: VideoMetadata = serde_json::from_str(json_data).expect("Should deserialize with null chapters");
+        assert_eq!(meta.id, "dQw4w9WgXcQ");
+        assert_eq!(meta.duration_seconds(), 213);
+        assert_eq!(meta.chapters().len(), 0);
+    }
 }

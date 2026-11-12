@@ -43,12 +43,12 @@ fn main() {
                                 match Engine::fetch_metadata(&url).await {
                                     Ok(metadata) => {
                                         handle.update(move |s, _tx| {
-                                            s.apply_core_event(CoreEvent::MetadataLoaded(metadata));
+                                            s.on_inspect_success(metadata);
                                         });
                                     }
                                     Err(err) => {
                                         handle.update(move |s, _tx| {
-                                            s.apply_core_event(CoreEvent::Error(err.to_string()));
+                                            s.on_inspect_error(err.to_string());
                                         });
                                     }
                                 }

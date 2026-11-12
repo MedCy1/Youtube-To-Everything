@@ -31,7 +31,8 @@ pub struct State {
     pub eta_str: String,
     pub status_text: String,
     pub downloaded_file: Option<PathBuf>,
-    pub error_message: Option<String>,
+    pub inspect_error: Option<String>,
+    pub download_error: Option<String>,
 }
 
 impl Default for State {
@@ -50,9 +51,10 @@ impl Default for State {
             progress_percent: 0.0,
             speed_str: "-".to_string(),
             eta_str: "-".to_string(),
-            status_text: "En attente d'une URL...".to_string(),
+            status_text: "Prêt. Collez une URL YouTube pour démarrer.".to_string(),
             downloaded_file: None,
-            error_message: None,
+            inspect_error: None,
+            download_error: None,
         }
     }
 }
@@ -61,13 +63,12 @@ impl State {
     pub fn trigger_inspect(&mut self) {
         let url = self.url_input.text.trim().to_string();
         if url.is_empty() {
-            self.error_message = Some("Veuillez saisir ou coller une URL YouTube.".to_string());
+            self.inspect_error = Some("Veuillez saisir ou coller une URL YouTube.".to_string());
             return;
         }
 
-        self.error_message = None;
+        self.inspect_error = None;
         self.is_loading_metadata = true;
-        self.status_text = "Inspection des métadonnées YouTube...".to_string();
 
         if let Some(tx) = ACTION_TX.get() {
             let _ = tx.send(GuiAction::InspectMetadata(url));
@@ -77,7 +78,7 @@ impl State {
     pub fn trigger_download(&mut self) {
         let url = self.url_input.text.trim().to_string();
         if url.is_empty() {
-            self.error_message = Some("URL absente ou invalide.".to_string());
+            self.download_error = Some("URL absente ou invalide.".to_string());
             return;
         }
 
@@ -85,7 +86,7 @@ impl State {
             match TimeRange::new(self.start_time_secs, self.end_time_secs) {
                 Ok(range) => Some(range),
                 Err(e) => {
-                    self.error_message = Some(format!("Erreur d'intervalle: {}", e));
+                    self.download_error = Some(format!("Erreur d'intervalle: {}", e));
                     return;
                 }
             }
@@ -96,7 +97,7 @@ impl State {
         self.is_downloading = true;
         self.progress_percent = 0.0;
         self.downloaded_file = None;
-        self.error_message = None;
+        self.download_error = None;
         self.status_text = "Démarrage du téléchargement...".to_string();
 
         let output_dir = dirs::download_dir().unwrap_or_else(|| PathBuf::from("./output"));
@@ -111,17 +112,27 @@ impl State {
         }
     }
 
+    pub fn on_inspect_success(&mut self, meta: VideoMetadata) {
+        let duration = meta.duration_seconds();
+        self.end_time_secs = if duration > 0 { duration.min(60) } else { 30 };
+        self.metadata = Some(meta);
+        self.is_loading_metadata = false;
+        self.inspect_error = None;
+    }
+
+    pub fn on_inspect_error(&mut self, err: String) {
+        self.is_loading_metadata = false;
+        self.inspect_error = Some(err);
+    }
+
     pub fn apply_core_event(&mut self, event: CoreEvent) {
         match event {
             CoreEvent::MetadataLoaded(meta) => {
-                let duration = meta.duration_seconds();
-                self.end_time_secs = if duration > 0 { duration.min(60) } else { 30 };
-                self.metadata = Some(meta);
-                self.is_loading_metadata = false;
-                self.status_text = "Métadonnées prêtes.".to_string();
+                self.on_inspect_success(meta);
             }
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
+                self.download_error = None;
                 self.status_text = "Téléchargement en cours...".to_string();
             }
             CoreEvent::Progress(update) => {
@@ -140,9 +151,8 @@ impl State {
             }
             CoreEvent::Error(err) => {
                 self.is_downloading = false;
-                self.is_loading_metadata = false;
-                self.error_message = Some(err);
-                self.status_text = "Une erreur est survenue.".to_string();
+                self.download_error = Some(err);
+                self.status_text = "Une erreur est survenue pendant le traitement.".to_string();
             }
         }
     }
