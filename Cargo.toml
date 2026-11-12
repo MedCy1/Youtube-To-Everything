@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/y2e-core",
+    "crates/y2e-gui",
+]
+resolver = "2"

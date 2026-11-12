@@ -1,0 +1,15 @@
+[package]
+name = "y2e-gui"
+version = "0.1.0"
+edition = "2021"
+description = "Native GPU Desktop UI for YouTube to Everything powered by Rune"
+authors = ["Youtube to Everything Contributors"]
+
+[dependencies]
+y2e-core = { path = "../y2e-core" }
+tokio = { version = "1.43", features = ["full"] }
+crossbeam-channel = "0.5"
+tracing = "0.1"
+
+# Rune Native UI framework
+rune = { git = "https://github.com/anomalyco/rune", default-features = false, features = ["embedded-fonts"] }
