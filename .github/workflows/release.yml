@@ -2,7 +2,7 @@ name: Release
 
 # Push a tag such as v0.2.0 (scripts/release.sh does it) to publish a release.
 # Run it by hand from the Actions tab to rehearse: everything runs except the
-# publication, and the archive is kept as a build artifact.
+# publication, and the archives are kept as build artifacts.
 on:
   push:
     tags: ["v*"]
@@ -16,19 +16,28 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   build:
-    name: Build and publish
+    name: Build (${{ matrix.name }})
     needs: check
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64, os: ubuntu-24.04 }
+          - { name: macos-universal, os: macos-latest }
+          - { name: windows-x86_64, os: windows-latest }
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # the release notes read the history between tags
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
       - name: System libraries
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev
 
       - name: The tag must match the crate version
@@ -41,7 +50,15 @@ jobs:
           fi
 
       - name: Build
-        run: cargo build --profile dist -p y2e-gui --locked
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            for target in aarch64-apple-darwin x86_64-apple-darwin; do
+              cargo build --profile dist -p y2e-gui --locked --target "$target"
+            done
+            lipo -create -output y2e-gui target/aarch64-apple-darwin/dist/y2e-gui target/x86_64-apple-darwin/dist/y2e-gui
+          else
+            cargo build --profile dist -p y2e-gui --locked
+          fi
 
       - uses: taiki-e/install-action@v2
         with:
@@ -52,15 +69,53 @@ jobs:
 
       - name: Package
         run: |
-          name="y2e-${GITHUB_REF_NAME}-linux-x86_64"
-          mkdir "$name"
-          cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
-          tar -czf "$name.tar.gz" "$name"
-          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
-          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
+          name="y2e-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          case "$RUNNER_OS" in
+            Linux)
+              mkdir "$name"
+              cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
+              asset="$name.tar.gz"
+              tar -czf "$asset" "$name"
+              ;;
+            macOS)
+              asset="$name.zip"
+              packaging/macos/bundle.sh y2e-gui "$GITHUB_REF_NAME" "$asset" LICENSE THIRD-PARTY-LICENSES.txt
+              ;;
+            Windows)
+              mkdir "$name"
+              cp target/dist/y2e-gui.exe README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
+              asset="$name.zip"
+              powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$asset'"
+              ;;
+          esac
+          sha256sum "$asset" > "$asset.sha256" 2>/dev/null || shasum -a 256 "$asset" > "$asset.sha256"
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+
+  publish:
+    name: Publish
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release notes read the history between tags
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Release notes
-        if: github.ref_type == 'tag'
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
@@ -68,21 +123,8 @@ jobs:
         env:
           OUTPUT: RELEASE_NOTES.md
 
-      - name: Keep the archive (rehearsal)
-        if: github.ref_type != 'tag'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ASSET }}
-          path: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET }}.sha256
-
-      - name: Publish
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET }}.sha256
+          files: dist/*
           prerelease: ${{ contains(github.ref_name, '-') }}

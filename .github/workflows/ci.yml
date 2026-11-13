@@ -5,14 +5,19 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   check:
-    name: Format, lint, test
-    runs-on: ubuntu-24.04
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -20,7 +25,36 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: System libraries
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev
       - run: cargo fmt --all --check
       - run: cargo clippy --all --all-targets --locked -- -D warnings
       - run: cargo test --all --locked
+
+  # By hand only: downloads about 190 MB of tools per system.
+  tools:
+    name: Install the tools (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' && github.workflow == 'CI'
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev
+      - name: ffmpeg from Homebrew (macOS has no downloadable build)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install and run the tools
+        shell: bash
+        run: |
+          bin=$(cargo test -p y2e-core --locked --no-run --message-format=json | python3 -c 'import json,sys; print([m["executable"] for m in map(json.loads, sys.stdin) if m.get("executable") and m["target"]["name"]=="y2e_core"][0])')
+          # A bare PATH, like an app started from the Finder.
+          if [ "$RUNNER_OS" = macOS ]; then PATH=/usr/bin:/bin:/usr/sbin:/sbin; fi
+          "$bin" --ignored --nocapture installs_for_real
