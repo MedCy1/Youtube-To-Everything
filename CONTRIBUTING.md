@@ -10,7 +10,7 @@ Thanks for your interest. Bug reports, ideas and pull requests are all welcome. 
 
 ## Setting up
 
-You need a recent stable Rust toolchain, `curl`, and on Linux the `libxkbcommon` development files (`libxkbcommon-dev` on Debian and Ubuntu). `yt-dlp` and `ffmpeg` are needed to try exports. y2e can install its own copies on first launch.
+You need a recent stable Rust toolchain, `curl` and `tar` (both ship with macOS and Windows 10 or later), and on Linux the `libxkbcommon` development files (`libxkbcommon-dev` on Debian and Ubuntu). CI builds and tests on Linux, macOS and Windows, so keep platform-specific code behind `cfg` and out of the shared paths. `yt-dlp` and `ffmpeg` are needed to try exports. y2e can install its own copies on first launch.
 
 ```bash
 git clone https://github.com/MedCy1/Youtube-To-Everything.git
@@ -27,7 +27,7 @@ The first build compiles the whole GPU stack and takes a few minutes. Later buil
 | `crates/y2e-core` | The engine: yt-dlp and ffmpeg calls, presets, progress parsing, tool installation. It must stay free of any UI dependency. |
 | `crates/y2e-gui` | The interface: state, views, GPU effects, colours. |
 | `specs/` | Feature specifications. A feature that changes behaviour should update or add one. |
-| `packaging/` | Desktop entry, icon and install script. |
+| `packaging/` | Linux desktop entry and installer, macOS bundle script, icons. |
 
 The engine and the interface talk through typed events (`CoreEvent`). New behaviour in the engine should reach the interface that way.
 

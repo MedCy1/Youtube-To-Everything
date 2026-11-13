@@ -8,7 +8,7 @@ Download a YouTube video, keep only the part you want, and export it in the form
 
 [![CI](https://github.com/MedCy1/Youtube-To-Everything/actions/workflows/ci.yml/badge.svg)](https://github.com/MedCy1/Youtube-To-Everything/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/MedCy1/Youtube-To-Everything?include_prereleases&sort=semver)](https://github.com/MedCy1/Youtube-To-Everything/releases)
-![Platform](https://img.shields.io/badge/platform-Linux-informational)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-informational)
 ![Rust](https://img.shields.io/badge/built%20with-Rust-orange)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 
@@ -73,7 +73,9 @@ Tool failures are turned into one plain sentence ("This video is not available."
 
 ## Installation
 
-Release archives are published for Linux x86_64 on the [Releases](https://github.com/MedCy1/Youtube-To-Everything/releases) page.
+Packages for Linux, macOS and Windows are published on the [Releases](https://github.com/MedCy1/Youtube-To-Everything/releases) page. Each file comes with a `.sha256` checksum.
+
+### Linux
 
 ```bash
 tar -xzf y2e-vX.Y.Z-linux-x86_64.tar.gz
@@ -81,20 +83,24 @@ cd y2e-vX.Y.Z-linux-x86_64
 sh install.sh
 ```
 
-`install.sh` copies the binary to `~/.local/bin`, and adds a menu entry and an icon for the current user. Run `sh install.sh --uninstall` to remove them. Each archive comes with a SHA-256 checksum:
+`install.sh` copies the binary to `~/.local/bin` and adds a menu entry and an icon for the current user. Run `sh install.sh --uninstall` to remove them. You need a Wayland or X11 session and a GPU driver with Vulkan or OpenGL support.
 
-```bash
-sha256sum -c y2e-vX.Y.Z-linux-x86_64.tar.gz.sha256
-```
+### macOS
 
-Requirements: a Wayland or X11 session, and a GPU driver with Vulkan or OpenGL support.
+Unzip `y2e-vX.Y.Z-macos-universal.zip` and move `y2e.app` to Applications. The app runs on Apple silicon and Intel Macs, macOS 11 or later. It is not signed with an Apple developer certificate, so the first time, right-click the app and choose Open, or run `xattr -dr com.apple.quarantine /Applications/y2e.app`.
+
+### Windows
+
+Unzip `y2e-vX.Y.Z-windows-x86_64.zip` and run `y2e-gui.exe`. Windows SmartScreen may warn about an unknown publisher the first time: choose More info, then Run anyway. To remove y2e, delete the folder, and the downloaded tools in `%LOCALAPPDATA%\y2e`.
 
 ## yt-dlp and ffmpeg
 
 y2e relies on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) to read and fetch videos and on [`ffmpeg`](https://ffmpeg.org) to convert them.
 
-- If both are on your `PATH`, y2e uses them.
-- If one is missing, the start screen says so and offers to install it. On Linux (x86_64 and aarch64) that downloads about 190 MB, takes about 390 MB on disk and stores the files in `~/.local/share/y2e/bin`. Each file is checked against the SHA-256 sum its release publishes before it is installed.
+- If both are installed on your system, y2e uses them. On macOS it also looks in the Homebrew folders.
+- If one is missing, the start screen says so and offers to install it. That downloads about 190 MB and takes about 390 MB on disk. Each file is checked against the SHA-256 sum its release publishes before it is installed.
+- The tools land in `~/.local/share/y2e/bin` on Linux, `~/Library/Application Support/y2e/bin` on macOS and `%LOCALAPPDATA%\y2e\bin` on Windows.
+- No ffmpeg build is published for macOS, so there y2e installs `yt-dlp` and asks you to run `brew install ffmpeg` for the rest.
 - At launch, y2e looks for a newer `yt-dlp` in the background and offers to update it. If your copy comes from a package manager, y2e tells you about the update and leaves the update to you.
 - A copy of `ffmpeg` installed by y2e is offered for renewal after four months.
 
@@ -114,7 +120,7 @@ The arrow keys work as soon as a video is loaded, without selecting the timeline
 
 ## Build from source
 
-You need a recent stable Rust toolchain and `curl`. On Linux the build also needs `libxkbcommon` development files (`libxkbcommon-dev` on Debian and Ubuntu).
+You need a recent stable Rust toolchain. y2e also calls `curl` and `tar`, which ship with macOS and Windows 10 or later. On Linux the build needs the `libxkbcommon` development files (`libxkbcommon-dev` on Debian and Ubuntu).
 
 ```bash
 git clone https://github.com/MedCy1/Youtube-To-Everything.git
@@ -130,7 +136,7 @@ cargo run --release -p y2e-gui
 crates/
 ├── y2e-core/   engine: yt-dlp, ffmpeg, presets, progress, tool management (no UI dependency)
 └── y2e-gui/    native interface: views, GPU effects, colour palette
-packaging/      desktop entry, icon and install script
+packaging/      Linux desktop entry and installer, macOS bundle script, icons
 scripts/        release and third-party license scripts
 third-party/    licenses of the embedded fonts
 specs/          feature specifications
@@ -153,7 +159,8 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 ## Known limitations
 
 - When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
-- Installing and updating the external tools is only supported on Linux.
+- Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
+- On macOS, `ffmpeg` has to come from Homebrew or another source: no build of it can be downloaded automatically.
 
 ## License
 
