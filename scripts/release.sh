@@ -17,11 +17,9 @@ command -v git-cliff >/dev/null || { echo "git-cliff is needed: cargo install gi
 sed -i "s/^version = \".*\"$/version = \"$new\"/" Cargo.toml
 cargo check --workspace --quiet   # refreshes Cargo.lock
 
-git add Cargo.toml Cargo.lock
-git commit -q -m "chore(release): $tag"
 git-cliff --tag "$tag" --output CHANGELOG.md
-git add CHANGELOG.md
-git commit -q --amend --no-edit
+git add Cargo.toml Cargo.lock CHANGELOG.md
+git commit -q -m "chore(release): $tag"
 git tag -a "$tag" -m "$tag"
 
 echo "Tagged $tag. Review with 'git show', then publish with: git push --follow-tags"
