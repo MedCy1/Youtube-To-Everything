@@ -45,6 +45,8 @@ impl Default for Scrub {
 
 pub struct State {
     pub scrub: Scrub,
+    /// The field was filled from a link found in the clipboard.
+    pub clipboard_link: bool,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -74,6 +76,7 @@ impl Default for State {
         url_input.focused = true;
         Self {
             scrub: Scrub::default(),
+            clipboard_link: false,
             completed: 0,
             url_input,
             metadata: None,
@@ -106,6 +109,7 @@ impl State {
         }
 
         self.inspect_error = None;
+        self.clipboard_link = false;
         self.thumbnail = None;
         self.accent_hue = BRAND_HUE;
         self.is_loading_metadata = true;
@@ -149,6 +153,21 @@ impl State {
                 preset: self.preset,
                 output_dir,
             });
+        }
+    }
+
+    /// Fills the empty field with a YouTube link found in the clipboard, when
+    /// the landing view is waiting for one.
+    pub fn offer_clipboard_link(&mut self, clipboard_text: &str) {
+        let idle = !self.showing_source() && !self.is_loading_metadata;
+        if !idle || !self.url_input.text.is_empty() {
+            return;
+        }
+        if let Some(link) = crate::link::youtube_link(clipboard_text) {
+            self.url_input = TextEdit::new(&link);
+            self.url_input.focused = true;
+            self.inspect_error = None;
+            self.clipboard_link = true;
         }
     }
 

@@ -1,5 +1,6 @@
 mod artwork;
 mod gfx;
+mod link;
 mod report;
 mod state;
 mod theme;

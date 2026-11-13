@@ -38,12 +38,22 @@ En tant qu'utilisateur, je choisis le passage à exporter en glissant sur une fo
 1. **Given** un export terminé, **Then** un halo quitte le bouton, un bandeau indique le chemin du fichier et propose d'ouvrir son dossier.
 2. **Given** un export en échec, **Then** un bandeau d'erreur s'affiche sans bloquer l'interface.
 
+### User Story 4 - Clavier et presse-papier (Priority: P2)
+
+**Acceptance Scenarios**:
+
+1. **Given** un lien YouTube copié dans le presse-papier, **When** la fenêtre passe au premier plan sur l'écran d'accueil, **Then** le champ est rempli et l'interface invite à appuyer sur Entrée.
+2. **Given** le champ du lien, **When** j'appuie sur Entrée, **Then** la source est lue.
+3. **Given** une source chargée, **When** je navigue au clavier, **Then** chaque contrôle est atteignable, nommé pour les lecteurs d'écran et affiche un anneau de focus ; Entrée lance l'export hors du champ du lien.
+
 ## Requirements *(mandatory)*
 
 - **FR-001**: La couleur d'accent DOIT être dérivée de la teinte dominante de la miniature, à luminosité et chroma fixes.
 - **FR-002**: Les mouvements d'ambiance (dérive du décor, respiration de l'image, ligne de survol) DOIVENT passer par des valeurs animées côté rendu et ne pas reconstruire la vue.
 - **FR-003**: Le champ URL DOIT rester un seul élément entre l'accueil et la barre supérieure.
 - **FR-004**: Le chemin du fichier final DOIT provenir de `yt-dlp` (`--print after_move:filepath`), jamais d'un parsing de son journal.
+- **FR-006**: Seul un lien unique vers un domaine YouTube connu DOIT être repris depuis le presse-papier ; tout autre contenu est ignoré.
+- **FR-007**: Les erreurs des outils DOIVENT être traduites en une phrase claire ; le détail technique n'apparaît que si l'erreur n'est pas reconnue.
 - **FR-005**: Toute logique non graphique (extraction de teinte) DOIT être couverte par un test unitaire déterministe.
 
 ## Success Criteria *(mandatory)*

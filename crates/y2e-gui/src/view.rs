@@ -93,6 +93,10 @@ fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Palette) -> E
         .fill(fill)
         .motion(motion::SNAPPY)
         .press_scale(0.96)
+        .role("button")
+        .label(label)
+        .focusable(true)
+        .focus_ring(2.0, 2.0, p.text)
         .center()
         .child(
             text(label)
@@ -108,6 +112,7 @@ fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .key("url_input")
         .grow(1.0)
         .single_line()
+        .label("Lien de la vidéo YouTube")
         .placeholder("Collez un lien YouTube", p.text_faint)
         .on_edit(|s: &mut State| &mut s.url_input)
         .on_submit(|s: &mut State, _| {
@@ -136,6 +141,7 @@ fn url_pill(s: &State, p: &Palette, big: bool) -> El {
     let height = if big { 64.0 } else { 48.0 };
     row()
         .key("url-pill")
+        .role("group")
         .matched("url-pill")
         .w_full()
         .max_w(if big { 680.0 } else { 560.0 })
@@ -270,11 +276,15 @@ fn hero(s: &State, p: &Palette) -> El {
     } else if let Some(error) = &s.inspect_error {
         stack = stack.child(error_card(&explain(error), p));
     } else {
-        stack = stack.child(
+        stack = stack.child(if s.clipboard_link {
+            text("Lien détecté dans le presse-papier. Appuyez sur Entrée pour le lire.")
+                .font(face(15.0, 600))
+                .color(p.accent_hi)
+        } else {
             text("MP4 · MP3 · Discord · GIF — et seulement le passage qui vous intéresse.")
                 .font(face(15.0, 500))
-                .color(p.text_faint),
-        );
+                .color(p.text_faint)
+        });
     }
     stack
 }
@@ -434,6 +444,10 @@ fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .fill(p.chip)
                     .center()
                     .press_scale(0.96)
+                    .role("button")
+                    .label("Sélectionner toute la vidéo")
+                    .focusable(true)
+                    .focus_ring(2.0, 2.0, p.text)
                     .child(text("Tout").font(face(13.0, 600)).color(p.text_dim))
                     .on_press(|s: &mut State| s.reset_range()),
             )
@@ -523,6 +537,10 @@ fn preset_chip(
         .fill(if on { p.text } else { p.chip })
         .motion(motion::SNAPPY)
         .press_scale(0.97)
+        .role("button")
+        .label(name)
+        .focusable(true)
+        .focus_ring(2.0, 2.0, p.text)
         .center()
         .child(
             row()
@@ -569,11 +587,22 @@ fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
         .fill(if s.is_downloading { p.chip } else { p.accent })
         .motion(motion::SNAPPY)
         .press_scale(0.97)
+        .role("button")
+        .label("Exporter")
+        .focusable(!s.is_downloading)
+        .focus_ring(2.0, 2.0, p.text)
         .on_press(|s: &mut State| {
             if !s.is_downloading {
                 s.trigger_download();
             }
         });
+
+    // Return presses the export button from anywhere but the URL field.
+    let button = if s.is_downloading {
+        button
+    } else {
+        button.default_button()
+    };
 
     if s.is_downloading {
         button
@@ -703,6 +732,10 @@ fn gif_advice(s: &State, p: &Palette) -> El {
             .radius(15.0)
             .fill(p.chip)
             .press_scale(0.96)
+            .role("button")
+            .label(label)
+            .focusable(true)
+            .focus_ring(2.0, 2.0, p.text)
             .center()
             .child(text(label).font(face(13.0, 600)).color(p.text))
     };
@@ -822,6 +855,10 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                         .radius(15.0)
                         .fill(p.chip)
                         .press_scale(0.96)
+                        .role("button")
+                        .label("Ouvrir le dossier")
+                        .focusable(true)
+                        .focus_ring(2.0, 2.0, p.text)
                         .center()
                         .child(
                             text("Ouvrir le dossier")
@@ -848,6 +885,14 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
     el().w_full()
         .h_full()
         .fill(p.bg)
+        // A link copied elsewhere is offered as soon as the window is back in front.
+        .on_window_focus(|s: &mut State, focused, tx| {
+            if focused && !s.showing_source() && !s.is_loading_metadata {
+                tx.read_clipboard(|s: &mut State, content, _| {
+                    s.offer_clipboard_link(content.text());
+                });
+            }
+        })
         .child(scene(s, &p))
         .child(fill_parent().child(layout.w_full().h_full()))
 }
