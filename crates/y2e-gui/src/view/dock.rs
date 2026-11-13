@@ -76,7 +76,7 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
         .motion(motion::SNAPPY)
         .press_scale(0.97)
         .role("button")
-        .label("Exporter")
+        .label("Export")
         .focusable(!s.is_downloading)
         .focus_ring(2.0, 2.0, p.text)
         .on_press(|s: &mut State| {
@@ -139,11 +139,7 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
                 row()
                     .gap(12.0)
                     .center_y()
-                    .child(
-                        text("Exporter")
-                            .font(display(19.0, -0.3))
-                            .color(p.on_accent),
-                    )
+                    .child(text("Export").font(display(19.0, -0.3)).color(p.on_accent))
                     .child(text("↓").font(face(20.0, 700)).color(p.on_accent)),
             ),
         )
@@ -188,9 +184,9 @@ pub(super) fn notice(
 /// Human size: megabytes below a gigabyte, gigabytes above.
 pub(super) fn format_size(mb: f64) -> String {
     if mb >= 1024.0 {
-        format!("{:.1} Go", mb / 1024.0).replace('.', ",")
+        format!("{:.1} GB", mb / 1024.0)
     } else {
-        format!("{:.0} Mo", mb.max(1.0))
+        format!("{:.0} MB", mb.max(1.0))
     }
 }
 
@@ -246,7 +242,7 @@ pub(super) fn gif_advice(s: &State, p: &Palette) -> Option<El> {
             .fill(p.accent_deep.alpha(0.55))
             .child(
                 text(format!(
-                    "Un GIF de {} pèsera lourd. Un extrait court se partage mieux.",
+                    "A {} GIF will be large. A short clip is easier to share.",
                     format_time_seconds(seconds)
                 ))
                 .font(face(14.0, 500))
@@ -254,9 +250,9 @@ pub(super) fn gif_advice(s: &State, p: &Palette) -> Option<El> {
                 .truncate_fade()
                 .grow(1.0),
             )
-            .child(chip("Garder 8 s").on_press(|s: &mut State| s.keep_short_clip(8)))
+            .child(chip("Keep 8 s").on_press(|s: &mut State| s.keep_short_clip(8)))
             .child(
-                chip("Passer en MP4")
+                chip("Switch to MP4")
                     .on_press(|s: &mut State| s.preset = DownloadPreset::MaxQuality),
             ),
     )
@@ -292,17 +288,17 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                             p,
                             DownloadPreset::MaxQuality,
                             "MP4",
-                            "Qualité max",
+                            "Max quality",
                         ))
                         .child(preset_chip(s, p, DownloadPreset::AudioMp3, "MP3", "Audio"))
                         .child(preset_chip(
                             s,
                             p,
                             DownloadPreset::Discord25Mb,
-                            "< 25 Mo",
+                            "< 25 MB",
                             "Discord",
                         ))
-                        .child(preset_chip(s, p, DownloadPreset::GifMeme, "GIF", "Boucle")),
+                        .child(preset_chip(s, p, DownloadPreset::GifMeme, "GIF", "Loop")),
                 )
                 .child(
                     row()

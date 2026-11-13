@@ -1,15 +1,15 @@
 # Release notes and CHANGELOG from conventional commits (https://git-cliff.org).
 
 [changelog]
-header = "# Journal des modifications\n\n"
+header = "# Changelog\n\n"
 body = """
 {% if version %}## {{ version }} ({{ timestamp | date(format="%Y-%m-%d") }})
-{% else %}## Prochaine version
+{% else %}## Unreleased
 {% endif %}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | striptags | trim | upper_first }}
 {% for commit in commits %}
-- {% if commit.scope %}**{{ commit.scope }}** : {% endif %}{{ commit.message | upper_first }}{% if commit.breaking %} (**changement incompatible**){% endif %}
+- {% if commit.scope %}{{ commit.scope }}: {% endif %}{{ commit.message | upper_first }}{% if commit.breaking %} (**breaking change**){% endif %}
 {%- endfor %}
 {% endfor %}
 """
@@ -28,11 +28,11 @@ sort_commits = "oldest"
 commit_parsers = [
   # Added then reverted before any release: not worth a line in the notes.
   { message = "^perf\\(gui\\): hold the landing aurora still", skip = true },
-  { message = "^feat", group = "<!-- 0 -->Nouveautés" },
-  { message = "^fix", group = "<!-- 1 -->Corrections" },
-  { message = "^perf", group = "<!-- 2 -->Performances" },
-  { message = "^refactor", group = "<!-- 3 -->Code interne" },
-  { message = "^build|^ci", group = "<!-- 4 -->Build et CI" },
+  { message = "^feat", group = "<!-- 0 -->Features" },
+  { message = "^fix", group = "<!-- 1 -->Bug fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Internal" },
+  { message = "^build|^ci", group = "<!-- 4 -->Build and CI" },
   { message = "^docs?", group = "<!-- 5 -->Documentation" },
   { message = "^revert|^style|^chore|^test", skip = true },
 ]

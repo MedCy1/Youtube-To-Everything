@@ -112,7 +112,7 @@ impl Default for State {
             progress_percent: 0.0,
             speed_str: "-".to_string(),
             eta_str: "-".to_string(),
-            status_text: "Prêt.".to_string(),
+            status_text: "Ready.".to_string(),
             downloaded_file: None,
             inspect_error: None,
             download_error: None,
@@ -132,7 +132,7 @@ impl State {
         }
         let url = self.url_input.text.trim().to_string();
         if url.is_empty() {
-            self.inspect_error = Some("Veuillez saisir ou coller une URL YouTube.".to_string());
+            self.inspect_error = Some("Paste or type a YouTube link.".to_string());
             return;
         }
 
@@ -150,7 +150,7 @@ impl State {
     pub fn trigger_download(&mut self) {
         let url = self.url_input.text.trim().to_string();
         if url.is_empty() {
-            self.download_error = Some("URL absente ou invalide.".to_string());
+            self.download_error = Some("Missing or invalid URL.".to_string());
             return;
         }
 
@@ -158,7 +158,7 @@ impl State {
             match TimeRange::new(self.start_time_secs, self.end_time_secs) {
                 Ok(range) => Some(range),
                 Err(e) => {
-                    self.download_error = Some(format!("Erreur d'intervalle: {}", e));
+                    self.download_error = Some(format!("Invalid time range: {}", e));
                     return;
                 }
             }
@@ -170,7 +170,7 @@ impl State {
         self.progress_percent = 0.0;
         self.downloaded_file = None;
         self.download_error = None;
-        self.status_text = "Démarrage…".to_string();
+        self.status_text = "Starting…".to_string();
 
         let output_dir = dirs::download_dir().unwrap_or_else(|| PathBuf::from("./output"));
 
@@ -377,7 +377,7 @@ impl State {
             return;
         }
         if let Some(tx) = ACTION_TX.get() {
-            self.installing = Some("Préparation".to_string());
+            self.installing = Some("Preparing".to_string());
             self.install_error = None;
             let _ = tx.send(GuiAction::InstallTools(tools));
         }
@@ -411,7 +411,7 @@ impl State {
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;
-                self.status_text = "Téléchargement…".to_string();
+                self.status_text = "Downloading…".to_string();
             }
             CoreEvent::Progress(update) => {
                 self.progress_percent = update.percent.clamp(0.0, 100.0);
@@ -424,14 +424,14 @@ impl State {
             CoreEvent::Finished { output_path } => {
                 self.is_downloading = false;
                 self.progress_percent = 100.0;
-                self.status_text = "Export terminé.".to_string();
+                self.status_text = "Export finished.".to_string();
                 self.downloaded_file = Some(output_path);
                 self.completed += 1;
             }
             CoreEvent::Error(err) => {
                 self.is_downloading = false;
                 self.download_error = Some(err);
-                self.status_text = "L'export a échoué.".to_string();
+                self.status_text = "The export failed.".to_string();
             }
         }
     }

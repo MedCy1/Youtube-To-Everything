@@ -142,7 +142,7 @@ pub async fn updates() -> Vec<Update> {
     if managed("ffmpeg").is_some() && age.is_some_and(|age| age > FFMPEG_MAX_AGE) {
         found.push(Update {
             tool: "ffmpeg",
-            detail: "installé depuis plus de 4 mois".to_string(),
+            detail: "installed more than 4 months ago".to_string(),
             managed: true,
         });
     }
@@ -175,7 +175,7 @@ async fn fetch_text(url: &str) -> Result<String> {
         .output()
         .await?;
     if !out.status.success() {
-        return Err(failure(format!("Impossible de lire {url}.")));
+        return Err(failure(format!("Could not read {url}.")));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
@@ -186,7 +186,7 @@ async fn sha256(file: &Path) -> Result<String> {
         .split_whitespace()
         .next()
         .map(str::to_string)
-        .ok_or_else(|| failure("La vérification n'a rien renvoyé."))
+        .ok_or_else(|| failure("Verification returned nothing."))
 }
 
 #[cfg(unix)]
@@ -209,19 +209,19 @@ fn make_executable(_: &Path) -> Result<()> {
 pub async fn install(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> {
     install_all(tools, say).await.map_err(|err| match err {
         Y2eError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => {
-            failure("Il manque curl, tar ou sha256sum sur ce système.")
+            failure("curl, tar or sha256sum is missing on this system.")
         }
         other => other,
     })
 }
 
 async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> {
-    let dir = managed_dir().ok_or_else(|| failure("Dossier de données introuvable."))?;
+    let dir = managed_dir().ok_or_else(|| failure("Data folder not found."))?;
     tokio::fs::create_dir_all(&dir).await?;
 
     for (i, tool) in tools.iter().enumerate() {
         let file = asset(tool, std::env::consts::OS, std::env::consts::ARCH)
-            .ok_or_else(|| failure(format!("Pas de version de {tool} pour ce système.")))?;
+            .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
         let (base, sums) = if *tool == "yt-dlp" {
             (YTDLP_BASE, "SHA2-256SUMS")
         } else {
@@ -229,25 +229,21 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
         };
         let part = dir.join(format!("{file}.part"));
 
-        say(format!(
-            "Téléchargement de {tool} ({}/{})",
-            i + 1,
-            tools.len()
-        ));
+        say(format!("Downloading {tool} ({}/{})", i + 1, tools.len()));
         fetch(&format!("{base}/{file}"), &part).await?;
 
-        say(format!("Vérification de {tool}"));
+        say(format!("Verifying {tool}"));
         let listing = fetch_text(&format!("{base}/{sums}")).await?;
         let expected = expected_hash(&listing, file)
-            .ok_or_else(|| failure(format!("Somme de contrôle de {file} introuvable.")))?;
+            .ok_or_else(|| failure(format!("Checksum for {file} not found.")))?;
         if sha256(&part).await? != expected {
             let _ = tokio::fs::remove_file(&part).await;
             return Err(failure(format!(
-                "Le fichier {file} est corrompu, il a été refusé."
+                "The file {file} is corrupted and was rejected."
             )));
         }
 
-        say(format!("Installation de {tool}"));
+        say(format!("Installing {tool}"));
         if *tool == "yt-dlp" {
             make_executable(&part)?;
             tokio::fs::rename(&part, dir.join("yt-dlp")).await?;

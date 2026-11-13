@@ -43,9 +43,9 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .key("url_input")
         .grow(1.0)
         .single_line()
-        .label("Lien de la vidéo YouTube")
+        .label("YouTube video link")
         .disabled(locked)
-        .placeholder("Collez un lien YouTube", p.text_faint)
+        .placeholder("Paste a YouTube link", p.text_faint)
         .on_edit(|s: &mut State| &mut s.url_input)
         .on_submit(|s: &mut State, _| {
             if !s.is_loading_metadata {
@@ -55,9 +55,9 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
 
     let action = solid_button(
         if s.is_loading_metadata {
-            "Lecture…"
+            "Loading…"
         } else {
-            "Lire"
+            "Load"
         },
         "inspect",
         big,
@@ -178,9 +178,9 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             col()
                 .center()
                 .gap(0.0)
-                .child(text("Une vidéo.").font(display(74.0, -2.6)).color(p.text))
+                .child(text("One video.").font(display(74.0, -2.6)).color(p.text))
                 .child(
-                    text("Tous les formats.")
+                    text("Every format.")
                         .font(display(74.0, -2.6))
                         .color(p.text_dim),
                 ),
@@ -188,7 +188,7 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         .child(url_pill(s, p, true));
 
     if s.is_loading_metadata {
-        stack = stack.child(loading_row("hero-loading", "Lecture de la source", p));
+        stack = stack.child(loading_row("hero-loading", "Fetching video details", p));
     } else if let Some(phase) = &s.installing {
         stack = stack.child(loading_row("hero-install", phase, p));
     } else if !s.missing_tools.is_empty() {
@@ -196,7 +196,7 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         let failed = s.install_error.is_some();
         let report = match &s.install_error {
             Some(cause) => Report {
-                headline: "L'installation a échoué.",
+                headline: "Installation failed.",
                 cause: Some(cause.clone()),
             },
             None => missing_tools(&s.missing_tools, can_install),
@@ -206,9 +206,9 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             stack = stack.child(
                 solid_button(
                     if failed {
-                        "Réessayer"
+                        "Try again"
                     } else {
-                        "Installer automatiquement"
+                        "Install automatically"
                     },
                     "install-tools",
                     true,
@@ -234,13 +234,13 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         let mut actions = row().gap(12.0);
         if can_update {
             actions = actions.child(
-                solid_button("Mettre à jour", "update-tools", true, false, p)
+                solid_button("Update", "update-tools", true, false, p)
                     .default_button()
                     .on_press(|s: &mut State| s.update_tools()),
             );
         }
         let dismiss = solid_button(
-            if can_update { "Plus tard" } else { "Compris" },
+            if can_update { "Later" } else { "Got it" },
             "dismiss-update",
             true,
             can_update,
@@ -255,11 +255,11 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         }));
     } else {
         stack = stack.child(if s.clipboard_link {
-            text("Lien détecté dans le presse-papier. Appuyez sur Entrée pour le lire.")
+            text("Link found on the clipboard. Press Enter to load it.")
                 .font(face(15.0, 600))
                 .color(p.accent_hi)
         } else {
-            text("MP4 · MP3 · Discord · GIF. Et seulement le passage qui vous intéresse.")
+            text("MP4 · MP3 · Discord · GIF. Just the part you want.")
                 .font(face(15.0, 500))
                 .color(p.text_faint)
         });

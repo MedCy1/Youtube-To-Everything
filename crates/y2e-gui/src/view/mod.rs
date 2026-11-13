@@ -101,7 +101,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                 notice(
                     "notice-done",
                     p.success,
-                    "Export terminé",
+                    "Export finished",
                     Some(path.display().to_string()),
                     &p,
                 )
@@ -112,15 +112,11 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                         .fill(p.chip)
                         .press_scale(0.96)
                         .role("button")
-                        .label("Ouvrir le dossier")
+                        .label("Open folder")
                         .focusable(true)
                         .focus_ring(2.0, 2.0, p.text)
                         .center()
-                        .child(
-                            text("Ouvrir le dossier")
-                                .font(face(13.0, 600))
-                                .color(p.text),
-                        )
+                        .child(text("Open folder").font(face(13.0, 600)).color(p.text))
                         .on_press(|s: &mut State| s.reveal_download()),
                 ),
             );

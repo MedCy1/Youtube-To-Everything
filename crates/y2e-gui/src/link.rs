@@ -44,7 +44,7 @@ mod tests {
             "hello world",
             "https://example.com/watch?v=abc",
             "https://www.youtube.com.evil.test/watch?v=abc",
-            "voici https://youtu.be/abc",
+            "see https://youtu.be/abc",
             "youtube.com/watch?v=abc",
         ] {
             assert_eq!(youtube_link(text), None, "{text}");

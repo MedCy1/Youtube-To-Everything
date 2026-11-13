@@ -16,15 +16,15 @@ const KNOWN: &[(&[&str], &str)] = &[
             "has been removed",
             "is not available",
         ],
-        "Cette vidéo n’est pas disponible.",
+        "This video is not available.",
     ),
     (
         &["incomplete youtube id", "looks truncated"],
-        "Ce lien semble incomplet. Copiez-le en entier.",
+        "This link looks incomplete. Copy the whole link.",
     ),
     (
         &["unsupported url", "is not a valid url"],
-        "Ce lien n’est pas pris en charge.",
+        "This link is not supported.",
     ),
     (
         &[
@@ -32,7 +32,7 @@ const KNOWN: &[(&[&str], &str)] = &[
             "confirm you’re not a bot",
             "confirm you're not a bot",
         ],
-        "YouTube demande une vérification.",
+        "YouTube is asking for a verification.",
     ),
     (
         &[
@@ -43,7 +43,7 @@ const KNOWN: &[(&[&str], &str)] = &[
             "unable to download",
             "connection",
         ],
-        "Connexion impossible. Vérifiez votre réseau.",
+        "Could not connect. Check your network.",
     ),
     (
         &[
@@ -51,7 +51,7 @@ const KNOWN: &[(&[&str], &str)] = &[
             "os error 2",
             "program not found",
         ],
-        "yt-dlp ou ffmpeg est introuvable sur cet ordinateur.",
+        "yt-dlp or ffmpeg was not found on this computer.",
     ),
     (
         &["no space left"],
@@ -63,18 +63,18 @@ const KNOWN: &[(&[&str], &str)] = &[
 /// app can fetch them itself, so say what that costs.
 pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
     let headline = match tools {
-        ["yt-dlp"] => "yt-dlp est introuvable.",
-        ["ffmpeg"] => "ffmpeg est introuvable.",
-        _ => "yt-dlp et ffmpeg sont introuvables.",
+        ["yt-dlp"] => "yt-dlp was not found.",
+        ["ffmpeg"] => "ffmpeg was not found.",
+        _ => "yt-dlp and ffmpeg were not found.",
     };
     let cause = if can_install {
         let mb: u32 = tools
             .iter()
             .map(|t| if *t == "ffmpeg" { 150 } else { 40 })
             .sum();
-        format!("y2e peut les installer pour vous (environ {mb} Mo à télécharger, une seule fois).")
+        format!("y2e can install them for you (about {mb} MB to download, once).")
     } else {
-        "Installez-les avec votre gestionnaire de paquets, puis relancez y2e.".to_string()
+        "Install them with your package manager, then restart y2e.".to_string()
     };
     Report {
         headline,
@@ -89,20 +89,17 @@ pub fn updates(list: &[y2e_core::tools::Update]) -> Report {
     let details: Vec<&str> = list.iter().map(|u| u.detail.as_str()).collect();
     let theirs: Vec<&str> = list.iter().filter(|u| !u.managed).map(|u| u.tool).collect();
     let advice = if theirs.is_empty() {
-        "Rester à jour évite les erreurs quand YouTube change.".to_string()
+        "Staying up to date avoids errors when YouTube changes.".to_string()
     } else {
-        format!(
-            "À mettre à jour avec votre gestionnaire de paquets : {}.",
-            theirs.join(" et ")
-        )
+        format!("Update with your package manager: {}.", theirs.join(" et "))
     };
     Report {
         headline: if names == ["yt-dlp"] {
-            "Une mise à jour de yt-dlp est disponible."
+            "A yt-dlp update is available."
         } else if names == ["ffmpeg"] {
-            "Une mise à jour de ffmpeg est disponible."
+            "An ffmpeg update is available."
         } else {
-            "Des mises à jour sont disponibles."
+            "Updates are available."
         },
         cause: Some(format!("{}. {advice}", details.join(" · "))),
     }
@@ -119,7 +116,7 @@ pub fn explain(raw: &str) -> Report {
             cause: None,
         },
         None => Report {
-            headline: "Une erreur est survenue.",
+            headline: "Something went wrong.",
             cause: Some(short_cause(raw)),
         },
     }
@@ -169,14 +166,14 @@ mod tests {
     #[test]
     fn names_a_known_problem_without_the_technical_noise() {
         let report = explain(UNAVAILABLE);
-        assert_eq!(report.headline, "Cette vidéo n’est pas disponible.");
+        assert_eq!(report.headline, "This video is not available.");
         assert_eq!(report.cause, None);
     }
 
     #[test]
     fn recognises_the_other_wording_of_an_unavailable_video() {
         let report = explain("ERROR: [youtube] abc: This video is unavailable");
-        assert_eq!(report.headline, "Cette vidéo n’est pas disponible.");
+        assert_eq!(report.headline, "This video is not available.");
     }
 
     #[test]
@@ -184,14 +181,14 @@ mod tests {
         let report = explain("ERROR: Incomplete YouTube ID -zzzzzz. URL looks truncated.");
         assert_eq!(
             report.headline,
-            "Ce lien semble incomplet. Copiez-le en entier."
+            "This link looks incomplete. Copy the whole link."
         );
     }
 
     #[test]
     fn falls_back_to_a_generic_headline_and_bounds_the_cause() {
         let report = explain(&format!("ERROR: {}", "x".repeat(400)));
-        assert_eq!(report.headline, "Une erreur est survenue.");
+        assert_eq!(report.headline, "Something went wrong.");
         assert!(report.cause.unwrap().chars().count() <= MAX_CAUSE + 1);
     }
 
@@ -200,7 +197,7 @@ mod tests {
         let report = explain(
             "Process execution error: ffmpeg exited with code Some(1), stderr: Stream map error\nInvalid argument",
         );
-        assert_eq!(report.headline, "Une erreur est survenue.");
+        assert_eq!(report.headline, "Something went wrong.");
         assert_eq!(report.cause.as_deref(), Some("Invalid argument"));
     }
 
@@ -208,11 +205,11 @@ mod tests {
     fn names_the_missing_tools() {
         assert_eq!(
             missing_tools(&["ffmpeg"], false).headline,
-            "ffmpeg est introuvable."
+            "ffmpeg was not found."
         );
         assert_eq!(
             missing_tools(&["yt-dlp", "ffmpeg"], true).headline,
-            "yt-dlp et ffmpeg sont introuvables."
+            "yt-dlp and ffmpeg were not found."
         );
     }
 
@@ -224,11 +221,8 @@ mod tests {
             managed,
         };
         let report = updates(&[update("yt-dlp", false)]);
-        assert!(report
-            .cause
-            .unwrap()
-            .contains("gestionnaire de paquets : yt-dlp"));
+        assert!(report.cause.unwrap().contains("package manager: yt-dlp"));
         let report = updates(&[update("yt-dlp", true)]);
-        assert!(!report.cause.unwrap().contains("gestionnaire"));
+        assert!(!report.cause.unwrap().contains("package manager"));
     }
 }

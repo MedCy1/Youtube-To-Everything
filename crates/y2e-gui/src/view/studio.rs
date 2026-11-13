@@ -24,11 +24,11 @@ pub(super) fn title_block(s: &State, p: &Palette) -> El {
     let Some(meta) = &s.metadata else {
         return el();
     };
-    let uploader = meta.uploader.as_deref().unwrap_or("Auteur inconnu");
+    let uploader = meta.uploader.as_deref().unwrap_or("Unknown author");
     let length = if meta.duration_seconds() > 0 {
-        format!("Source chargée · {}", meta.formatted_duration())
+        format!("Video loaded · {}", meta.formatted_duration())
     } else {
-        "Source chargée".to_string()
+        "Video loaded".to_string()
     };
     col()
         .key("title")

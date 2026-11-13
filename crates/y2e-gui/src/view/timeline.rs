@@ -95,7 +95,7 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
             .center_y()
             .child(
                 text(format!(
-                    "Découpe  {} → {}",
+                    "Clip  {} → {}",
                     format_time_seconds(s.start_time_secs),
                     format_time_seconds(s.end_time_secs)
                 ))
@@ -117,14 +117,14 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .center()
                     .press_scale(0.96)
                     .role("button")
-                    .label("Sélectionner toute la vidéo")
+                    .label("Select the whole video")
                     .focusable(true)
                     .focus_ring(2.0, 2.0, p.text)
-                    .child(text("Tout").font(face(13.0, 600)).color(p.text_dim))
+                    .child(text("All").font(face(13.0, 600)).color(p.text_dim))
                     .on_press(|s: &mut State| s.reset_range()),
             )
     } else {
-        text("Vidéo entière. Glissez sur la forme d’onde pour découper.")
+        text("Whole video. Drag across the waveform to cut.")
             .font(face(15.0, 500))
             .color(p.text_dim)
     };

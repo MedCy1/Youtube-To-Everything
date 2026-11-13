@@ -53,7 +53,7 @@ impl Engine {
 
         let _ = event_tx.send(CoreEvent::DownloadStarted).await;
         let _ = event_tx
-            .send(CoreEvent::StatusChanged("Initialisation…".to_string()))
+            .send(CoreEvent::StatusChanged("Starting…".to_string()))
             .await;
 
         let output_template = options.output_dir.join("%(title).100B.%(ext)s");
@@ -173,7 +173,7 @@ impl Engine {
             DownloadPreset::Discord25Mb => {
                 let _ = event_tx
                     .send(CoreEvent::StatusChanged(
-                        "Compression pour Discord (< 25 Mo)…".to_string(),
+                        "Compressing for Discord (< 25 MB)…".to_string(),
                     ))
                     .await;
                 let discord_output =
@@ -183,7 +183,7 @@ impl Engine {
             }
             DownloadPreset::GifMeme => {
                 let _ = event_tx
-                    .send(CoreEvent::StatusChanged("Création du GIF…".to_string()))
+                    .send(CoreEvent::StatusChanged("Creating the GIF…".to_string()))
                     .await;
                 let gif_output = Self::convert_to_gif(&downloaded_file).await?;
                 let _ = tokio::fs::remove_file(&downloaded_file).await;
