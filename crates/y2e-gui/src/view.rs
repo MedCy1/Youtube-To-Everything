@@ -69,16 +69,19 @@ fn scene(s: &State, p: &Palette) -> El {
         }
     }
 
+    // Light artwork needs a stronger scrim for the white text to stay readable.
+    let k = (0.75 + (s.art_lightness - 0.35) * 2.4).clamp(0.75, 1.9);
+    let a = |alpha: f32| p.bg.alpha((alpha * k).min(0.92));
     stage.child(fill_parent().linear_gradient(
         PI,
         [
-            (0.00, p.bg.alpha(0.62)),
-            (0.16, p.bg.alpha(0.18)),
-            (0.30, p.bg.alpha(0.0)),
-            (0.50, p.bg.alpha(0.22)),
-            (0.66, p.bg.alpha(0.52)),
-            (0.80, p.bg.alpha(0.48)),
-            (1.00, p.bg.alpha(0.30)),
+            (0.00, a(0.62)),
+            (0.16, a(0.18)),
+            (0.30, a(0.0)),
+            (0.50, a(0.22)),
+            (0.66, a(0.52)),
+            (0.80, a(0.48)),
+            (1.00, a(0.30)),
         ],
     ))
 }
@@ -539,11 +542,25 @@ fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
             )
             .child(
                 fill_parent().center().child(
-                    RollingText::new("export-progress", format!("{progress:.0} %"))
-                        .value(progress as f64)
-                        .font(figures(20.0, 700))
-                        .color(p.text)
-                        .build(k),
+                    col()
+                        .center()
+                        .gap(0.0)
+                        .child(
+                            RollingText::new("export-progress", format!("{progress:.0} %"))
+                                .value(progress as f64)
+                                .font(figures(19.0, 700))
+                                .color(p.text)
+                                .build(k),
+                        )
+                        .child(
+                            text(if s.speed_str != "-" && s.eta_str != "-" {
+                                format!("{} · {}", s.speed_str.trim(), s.eta_str.trim())
+                            } else {
+                                String::new()
+                            })
+                            .font(figures(12.0, 500))
+                            .color(p.text_dim),
+                        ),
                 ),
             )
     } else {
@@ -657,14 +674,6 @@ fn gif_advice(s: &State, p: &Palette) -> El {
 }
 
 fn dock(s: &State, p: &Palette, k: &Kit) -> El {
-    let stats: El = if s.is_downloading && s.speed_str != "-" && s.eta_str != "-" {
-        text(format!("{} · {}", s.speed_str, s.eta_str))
-            .font(figures(14.0, 500))
-            .color(p.text_faint)
-    } else {
-        el()
-    };
-
     col()
         .key("dock")
         .transition(Transition::offset(0.0, 72.0).combined(Transition::opacity()))
@@ -713,7 +722,6 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                         .center_y()
                         .justify_end()
                         .child(size_hint(s, p))
-                        .child(stats)
                         .child(
                             el().child(gfx::glow(
                                 s.accent_hue,

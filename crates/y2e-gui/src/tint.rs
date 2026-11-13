@@ -57,6 +57,25 @@ pub fn dominant_hue(rgba: &[u8], width: u32, height: u32) -> Option<f32> {
     Some((best as f32 + 0.5) * 360.0 / BINS as f32)
 }
 
+/// Mean lightness (Oklab, 0 to 1) of the lower part of an RGBA image, where the
+/// title and the dock sit. Used to decide how much scrim the text needs.
+pub fn lower_lightness(rgba: &[u8], width: u32, height: u32) -> f32 {
+    let (width, height) = (width as usize, height as usize);
+    if width == 0 || height == 0 || rgba.len() < width * height * 4 {
+        return 0.3;
+    }
+    let first_row = height * 55 / 100;
+    let (mut sum, mut count) = (0.0f32, 0u32);
+    for y in (first_row..height).step_by(2) {
+        for x in (0..width).step_by(2) {
+            let i = (y * width + x) * 4;
+            sum += oklab([rgba[i], rgba[i + 1], rgba[i + 2]])[0];
+            count += 1;
+        }
+    }
+    sum / count.max(1) as f32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,6 +92,12 @@ mod tests {
         let blue = dominant_hue(&flat([30, 60, 230], 64), 64, 64).unwrap();
         assert!((red - 29.0).abs() < 15.0, "red hue was {red}");
         assert!((blue - 265.0).abs() < 15.0, "blue hue was {blue}");
+    }
+
+    #[test]
+    fn measures_how_light_the_lower_part_is() {
+        assert!(lower_lightness(&flat([255, 255, 255], 32), 32, 32) > 0.95);
+        assert!(lower_lightness(&flat([0, 0, 0], 32), 32, 32) < 0.05);
     }
 
     #[test]

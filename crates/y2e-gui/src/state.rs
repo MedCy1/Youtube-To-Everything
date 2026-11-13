@@ -51,6 +51,8 @@ pub struct State {
     pub metadata: Option<VideoMetadata>,
     pub thumbnail: Option<Pixels>,
     pub accent_hue: f32,
+    /// Lightness of the artwork's lower part: the lighter, the stronger the scrim.
+    pub art_lightness: f32,
     pub is_loading_metadata: bool,
     pub is_downloading: bool,
     pub enable_snipper: bool,
@@ -77,6 +79,7 @@ impl Default for State {
             metadata: None,
             thumbnail: None,
             accent_hue: BRAND_HUE,
+            art_lightness: 0.3,
             is_loading_metadata: false,
             is_downloading: false,
             enable_snipper: false,
@@ -269,6 +272,7 @@ impl State {
             .as_ref()
             .and_then(|art| art.hue)
             .unwrap_or(BRAND_HUE);
+        self.art_lightness = artwork.as_ref().map_or(0.3, |art| art.lightness);
         self.thumbnail = artwork.map(|art| art.pixels);
         self.is_loading_metadata = false;
         self.inspect_error = None;

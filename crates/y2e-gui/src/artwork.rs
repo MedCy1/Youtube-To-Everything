@@ -7,6 +7,8 @@ use crate::tint;
 pub struct Artwork {
     pub pixels: Pixels,
     pub hue: Option<f32>,
+    /// How light the lower part of the picture is, from 0 to 1.
+    pub lightness: f32,
 }
 
 /// `None` when the picture cannot be fetched or decoded: the interface then
@@ -24,9 +26,14 @@ pub async fn fetch(url: &str) -> Option<Artwork> {
     tokio::task::spawn_blocking(move || {
         let rgba = image::load_from_memory(&bytes).ok()?.into_rgba8();
         let hue = tint::dominant_hue(&rgba, rgba.width(), rgba.height());
+        let lightness = tint::lower_lightness(&rgba, rgba.width(), rgba.height());
         let pixels = Pixels::new();
         pixels.set(rgba.width(), rgba.height(), rgba.into_raw());
-        Some(Artwork { pixels, hue })
+        Some(Artwork {
+            pixels,
+            hue,
+            lightness,
+        })
     })
     .await
     .ok()
