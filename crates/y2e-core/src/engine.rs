@@ -205,7 +205,11 @@ impl Engine {
         time_range: Option<TimeRange>,
     ) -> Result<PathBuf> {
         let output_path = input_path.with_extension("discord.mp4");
-        let duration = time_range.map(|r| r.duration_seconds()).unwrap_or(60);
+        // The real length of the file: with no cut selected the whole video is encoded.
+        let duration = match probe_duration(input_path).await {
+            Some(seconds) => seconds,
+            None => time_range.map_or(60, |r| r.duration_seconds()),
+        };
         let video_bitrate = DownloadPreset::calculate_discord_video_bitrate_kbps(duration);
 
         let mut cmd = tools::command("ffmpeg");
@@ -240,6 +244,25 @@ impl Engine {
     }
 }
 
+/// Length of a media file in whole seconds, as `ffprobe` reports it.
+async fn probe_duration(path: &Path) -> Option<u64> {
+    let out = tools::command("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+        ])
+        .arg(path)
+        .output()
+        .await
+        .ok()?;
+    let seconds: f64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
+    Some(seconds.ceil() as u64)
+}
+
 /// The last few lines of a tool's error output, which is where the cause is.
 fn tail(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes);
@@ -263,13 +286,38 @@ pub(crate) async fn run_quiet(mut cmd: Command, name: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{run_quiet, tail, Y2eError};
+    use super::{probe_duration, run_quiet, tail, Path, Y2eError};
     use crate::tools;
 
     #[test]
     fn keeps_only_the_last_lines_of_a_tool_output() {
         assert_eq!(tail(b"a\n\nb\nc\nd\ne\n"), "b\nc\nd\ne");
         assert_eq!(tail(b""), "");
+    }
+
+    #[tokio::test]
+    async fn measures_the_length_of_a_media_file() {
+        let file = std::env::temp_dir().join("y2e-probe-test.mp4");
+        let mut cmd = tools::command("ffmpeg");
+        cmd.args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:d=3",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(&file);
+        if run_quiet(cmd, "ffmpeg").await.is_err() {
+            return; // ffmpeg is not installed here
+        }
+        assert_eq!(probe_duration(&file).await, Some(3));
+        let _ = std::fs::remove_file(&file);
+        assert_eq!(probe_duration(Path::new("/nonexistent.mp4")).await, None);
     }
 
     #[tokio::test]
