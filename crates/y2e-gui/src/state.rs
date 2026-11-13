@@ -45,8 +45,6 @@ impl Default for Scrub {
 
 pub struct State {
     pub scrub: Scrub,
-    /// The window is in front; the landing aurora only drifts then.
-    pub focused: bool,
     /// The pointer is over the export button.
     pub export_hover: bool,
     /// The field was filled from a link found in the clipboard.
@@ -80,7 +78,6 @@ impl Default for State {
         url_input.focused = true;
         Self {
             scrub: Scrub::default(),
-            focused: true,
             export_hover: false,
             clipboard_link: false,
             completed: 0,

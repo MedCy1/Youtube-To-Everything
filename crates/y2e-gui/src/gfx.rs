@@ -14,11 +14,13 @@ const AURORA: u32 = 1;
 const GLOW: u32 = 2;
 
 /// An effect slot. `hue` is the interface's hue, so effects follow the artwork.
-/// `moving` lets it drift; a window out of focus holds it still.
-pub fn aurora(hue: f32, moving: bool) -> El {
-    rune::effect(AURORA)
-        .effect_data([hue, 0.0, 0.0, f32::from(moving)])
-        .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
+pub fn aurora(hue: f32) -> El {
+    rune::effect(AURORA).effect_data([hue, 0.0, 0.0, 1.0]).pin(
+        Some(0.0),
+        Some(0.0),
+        Some(0.0),
+        Some(0.0),
+    )
 }
 
 /// `moving` lets the aura flow; otherwise it rests in a fixed pose and costs no frames.

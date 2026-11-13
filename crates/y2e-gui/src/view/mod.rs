@@ -56,13 +56,13 @@ fn scene(s: &State, p: &Palette) -> El {
             );
         }
         _ => {
-            stage = stage.child(gfx::aurora(s.accent_hue, s.focused)).child(
-                fill_parent().radial_gradient(
+            stage = stage
+                .child(gfx::aurora(s.accent_hue))
+                .child(fill_parent().radial_gradient(
                     [0.5, 0.46],
                     [560.0, 330.0],
                     [(0.0, p.bg.alpha(0.5)), (1.0, clear(p.bg))],
-                ),
-            );
+                ));
         }
     }
 
@@ -143,7 +143,6 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         .fill(p.bg)
         // A link copied elsewhere is offered as soon as the window is back in front.
         .on_window_focus(|s: &mut State, focused, tx| {
-            s.focused = focused;
             if focused && !s.showing_source() && !s.is_loading_metadata {
                 tx.read_clipboard(|s: &mut State, content, _| {
                     s.offer_clipboard_link(content.text());
