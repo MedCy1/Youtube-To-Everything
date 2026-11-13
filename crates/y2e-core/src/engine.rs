@@ -95,6 +95,13 @@ impl Engine {
             }
         }
 
+        // `--print` implies quiet and simulate: ask for progress explicitly and
+        // let yt-dlp report the final path once every post-processor has run.
+        cmd.arg("--progress")
+            .arg("--no-simulate")
+            .arg("--print")
+            .arg("after_move:FILEPATH:%(filepath)s");
+
         cmd.arg(&options.url);
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
@@ -108,6 +115,8 @@ impl Engine {
         while let Ok(Some(line)) = reader.next_line().await {
             if let Some(progress) = parse_progress_line(&line) {
                 let _ = event_tx.send(CoreEvent::Progress(progress)).await;
+            } else if let Some(path) = line.strip_prefix("FILEPATH:") {
+                last_destination = Some(PathBuf::from(path.trim()));
             } else if line.contains("[download] Destination: ") {
                 if let Some(dest) = line.strip_prefix("[download] Destination: ") {
                     last_destination = Some(PathBuf::from(dest.trim()));
@@ -143,11 +152,13 @@ impl Engine {
             DownloadPreset::Discord25Mb => {
                 let _ = event_tx.send(CoreEvent::StatusChanged("Compression Discord (< 25 Mo)...".to_string())).await;
                 let discord_output = Self::compress_for_discord(&downloaded_file, options.time_range).await?;
+                let _ = tokio::fs::remove_file(&downloaded_file).await;
                 discord_output
             }
             DownloadPreset::GifMeme => {
                 let _ = event_tx.send(CoreEvent::StatusChanged("Génération de l'animation GIF...".to_string())).await;
                 let gif_output = Self::convert_to_gif(&downloaded_file).await?;
+                let _ = tokio::fs::remove_file(&downloaded_file).await;
                 gif_output
             }
             _ => downloaded_file,
