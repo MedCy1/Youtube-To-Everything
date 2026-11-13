@@ -620,6 +620,76 @@ fn notice(key: &str, color: Color, label: &str, detail: String, p: &Palette) -> 
         )
 }
 
+/// Human size: megabytes below a gigabyte, gigabytes above.
+fn format_size(mb: f64) -> String {
+    if mb >= 1024.0 {
+        format!("{:.1} Go", mb / 1024.0).replace('.', ",")
+    } else {
+        format!("{:.0} Mo", mb.max(1.0))
+    }
+}
+
+/// What the file will weigh. Never blocks anything: a huge GIF stays possible,
+/// the interface only points at the way out.
+fn size_hint(s: &State, p: &Palette) -> El {
+    let seconds = s.selected_seconds();
+    let Some(estimate) = s.preset.estimated_size_mb(seconds).filter(|_| seconds > 0) else {
+        return el();
+    };
+    let prefix = if s.preset == DownloadPreset::Discord25Mb {
+        "≤"
+    } else {
+        "≈"
+    };
+    text(format!("{prefix} {}", format_size(estimate)))
+        .font(figures(15.0, 600))
+        .color(p.text_dim)
+}
+
+fn gif_advice(s: &State, p: &Palette) -> El {
+    let seconds = s.selected_seconds();
+    let heavy = s.preset == DownloadPreset::GifMeme
+        && s.preset
+            .estimated_size_mb(seconds)
+            .is_some_and(|mb| mb > 40.0);
+    if !heavy {
+        return el();
+    }
+    let chip = |label: &'static str| {
+        el().h(30.0)
+            .px(14.0)
+            .radius(15.0)
+            .fill(p.chip)
+            .press_scale(0.96)
+            .center()
+            .child(text(label).font(face(13.0, 600)).color(p.text))
+    };
+    row()
+        .key("gif-advice")
+        .transition(Transition::offset(0.0, 12.0).combined(Transition::opacity()))
+        .w_full()
+        .px(16.0)
+        .py(10.0)
+        .gap(10.0)
+        .center_y()
+        .radius(14.0)
+        .fill(p.accent_deep.alpha(0.55))
+        .child(
+            text(format!(
+                "Un GIF de {} pèsera lourd. Un extrait court se partage mieux.",
+                format_time_seconds(seconds)
+            ))
+            .font(face(14.0, 500))
+            .color(p.text)
+            .truncate_fade()
+            .grow(1.0),
+        )
+        .child(chip("Garder 8 s").on_press(|s: &mut State| s.keep_short_clip(8)))
+        .child(
+            chip("Passer en MP4").on_press(|s: &mut State| s.preset = DownloadPreset::MaxQuality),
+        )
+}
+
 fn dock(s: &State, p: &Palette, k: &Kit) -> El {
     let stats: El = if s.is_downloading && s.speed_str != "-" && s.eta_str != "-" {
         text(format!("{} · {}", s.speed_str, s.eta_str))
@@ -641,33 +711,47 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
         .child(timeline(s, p, k))
+        .child(gif_advice(s, p))
         .child(
             row()
                 .w_full()
-                .gap(8.0)
+                .flex_wrap()
+                .gap(12.0)
                 .center_y()
-                .child(preset_chip(
-                    s,
-                    p,
-                    DownloadPreset::MaxQuality,
-                    "MP4",
-                    "Qualité max",
-                ))
-                .child(preset_chip(s, p, DownloadPreset::AudioMp3, "MP3", "Audio"))
-                .child(preset_chip(
-                    s,
-                    p,
-                    DownloadPreset::Discord25Mb,
-                    "< 25 Mo",
-                    "Discord",
-                ))
-                .child(preset_chip(s, p, DownloadPreset::GifMeme, "GIF", "Boucle"))
-                .child(spacer())
-                .child(stats)
-                .child(el().w(8.0))
                 .child(
-                    el().child(export_button(s, p, k))
-                        .child(completion_ring(s, p)),
+                    row()
+                        .flex_wrap()
+                        .gap(8.0)
+                        .center_y()
+                        .child(preset_chip(
+                            s,
+                            p,
+                            DownloadPreset::MaxQuality,
+                            "MP4",
+                            "Qualité max",
+                        ))
+                        .child(preset_chip(s, p, DownloadPreset::AudioMp3, "MP3", "Audio"))
+                        .child(preset_chip(
+                            s,
+                            p,
+                            DownloadPreset::Discord25Mb,
+                            "< 25 Mo",
+                            "Discord",
+                        ))
+                        .child(preset_chip(s, p, DownloadPreset::GifMeme, "GIF", "Boucle")),
+                )
+                .child(
+                    row()
+                        .grow(1.0)
+                        .gap(14.0)
+                        .center_y()
+                        .justify_end()
+                        .child(size_hint(s, p))
+                        .child(stats)
+                        .child(
+                            el().child(export_button(s, p, k))
+                                .child(completion_ring(s, p)),
+                        ),
                 ),
         )
 }

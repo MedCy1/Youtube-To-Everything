@@ -167,6 +167,31 @@ impl State {
         self.scrub.label.set(format_time_seconds(seconds));
     }
 
+    /// Length of what will be exported, in seconds (0 when unknown).
+    pub fn selected_seconds(&self) -> u64 {
+        if self.enable_snipper {
+            self.end_time_secs.saturating_sub(self.start_time_secs)
+        } else {
+            self.duration()
+        }
+    }
+
+    /// Narrows the cut to a short clip starting at the current start.
+    pub fn keep_short_clip(&mut self, seconds: u64) {
+        let total = self.duration();
+        if total == 0 {
+            return;
+        }
+        let start = if self.enable_snipper {
+            self.start_time_secs
+        } else {
+            0
+        };
+        self.start_time_secs = start.min(total.saturating_sub(1));
+        self.end_time_secs = (self.start_time_secs + seconds).min(total);
+        self.enable_snipper = true;
+    }
+
     /// Opens the folder holding the last export in the system file manager.
     pub fn reveal_download(&self) {
         let Some(folder) = self.downloaded_file.as_ref().and_then(|path| path.parent()) else {

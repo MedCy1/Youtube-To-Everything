@@ -28,6 +28,19 @@ impl DownloadPreset {
         }
     }
 
+    /// Rough size of the exported file in megabytes, from the measured output of
+    /// the encoders used here. `None` when it depends too much on the source
+    /// (the original streams are kept untouched).
+    pub fn estimated_size_mb(&self, seconds: u64) -> Option<f64> {
+        let seconds = seconds as f64;
+        match self {
+            Self::MaxQuality => None,
+            Self::AudioMp3 => Some(seconds * 0.03),
+            Self::Discord25Mb => Some(24.0_f64.min(seconds * 5.0)),
+            Self::GifMeme => Some(seconds * 1.9),
+        }
+    }
+
     pub fn calculate_discord_video_bitrate_kbps(duration_seconds: u64) -> u64 {
         let duration = duration_seconds.max(1);
         let target_size_kilobits = 24.0 * 8.0 * 1024.0; // 24 MB target in kilobits
@@ -41,6 +54,15 @@ impl DownloadPreset {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn estimates_grow_with_duration_and_discord_stays_capped() {
+        assert_eq!(DownloadPreset::MaxQuality.estimated_size_mb(60), None);
+        let gif_short = DownloadPreset::GifMeme.estimated_size_mb(5).unwrap();
+        let gif_long = DownloadPreset::GifMeme.estimated_size_mb(600).unwrap();
+        assert!(gif_long > gif_short * 50.0);
+        assert!(DownloadPreset::Discord25Mb.estimated_size_mb(3600).unwrap() <= 24.0);
+    }
 
     #[test]
     fn test_discord_bitrate_calculation() {
