@@ -1,9 +1,12 @@
 name: Release
 
 # Push a tag such as v0.2.0 (scripts/release.sh does it) to publish a release.
+# Run it by hand from the Actions tab to rehearse: everything runs except the
+# publication, and the archive is kept as a build artifact.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,6 +32,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev
 
       - name: The tag must match the crate version
+        if: github.ref_type == 'tag'
         run: |
           version=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="y2e-gui"))')
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
@@ -56,6 +60,7 @@ jobs:
           echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
 
       - name: Release notes
+        if: github.ref_type == 'tag'
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
@@ -63,7 +68,17 @@ jobs:
         env:
           OUTPUT: RELEASE_NOTES.md
 
+      - name: Keep the archive (rehearsal)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+
       - name: Publish
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
