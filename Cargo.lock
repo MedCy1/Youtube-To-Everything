@@ -2049,7 +2049,7 @@ dependencies = [
 [[package]]
 name = "rune"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#0aa08372cbd10945526a9b97769f0c26945543c7"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
 dependencies = [
  "accesskit",
  "arboard",
@@ -2116,14 +2116,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "rune-highlights"
+version = "0.0.1"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
+dependencies = [
+ "unicode-ident",
+ "wasmparser",
+]
+
+[[package]]
+name = "rune-kit"
+version = "0.0.1"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
+dependencies = [
+ "icu_normalizer",
+ "rune",
+ "rune-highlights",
+ "rune-motion",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "rune-motion"
 version = "0.1.0"
-source = "git+https://github.com/anomalyco/rune#0aa08372cbd10945526a9b97769f0c26945543c7"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
 
 [[package]]
 name = "rune-staging"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#0aa08372cbd10945526a9b97769f0c26945543c7"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
 dependencies = [
  "wgpu",
 ]
@@ -2131,9 +2152,19 @@ dependencies = [
 [[package]]
 name = "rune-taffy"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#0aa08372cbd10945526a9b97769f0c26945543c7"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
 dependencies = [
  "taffy",
+]
+
+[[package]]
+name = "rune-theme-opencode"
+version = "0.0.1"
+source = "git+https://github.com/anomalyco/rune#78f2a617c9ce8e64132d2b6cbaf699222384312d"
+dependencies = [
+ "rune",
+ "rune-kit",
+ "serde_json",
 ]
 
 [[package]]
@@ -2806,6 +2837,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b1f9c3798725016c6ee5f2f57869ec0831e8bbc0ab0310a86e787e97f41389e"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.245.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f08c9adee0428b7bddf3890fc27e015ac4b761cc608c822667102b8bfd6995e"
+dependencies = [
+ "bitflags 2.13.2",
+ "indexmap",
 ]
 
 [[package]]
@@ -3484,7 +3525,10 @@ name = "y2e-gui"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
+ "image",
  "rune",
+ "rune-kit",
+ "rune-theme-opencode",
  "tokio",
  "tracing",
  "y2e-core",

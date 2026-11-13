@@ -9,7 +9,10 @@ authors = ["Youtube to Everything Contributors"]
 y2e-core = { path = "../y2e-core" }
 tokio = { version = "1.43", features = ["full"] }
 crossbeam-channel = "0.5"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 tracing = "0.1"
 
 # Rune Native UI framework
 rune = { git = "https://github.com/anomalyco/rune", default-features = false, features = ["embedded-fonts"] }
+rune-kit = { git = "https://github.com/anomalyco/rune" }
+rune-theme-opencode = { git = "https://github.com/anomalyco/rune" }

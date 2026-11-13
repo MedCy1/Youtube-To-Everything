@@ -1,7 +1,7 @@
+use crossbeam_channel::Sender;
+use rune::{Pixels, TextEdit};
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use crossbeam_channel::Sender;
-use rune::TextEdit;
 use y2e_core::{CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
 
 pub static ACTION_TX: OnceLock<Sender<GuiAction>> = OnceLock::new();
@@ -20,6 +20,7 @@ pub enum GuiAction {
 pub struct State {
     pub url_input: TextEdit,
     pub metadata: Option<VideoMetadata>,
+    pub thumbnail: Option<Pixels>,
     pub is_loading_metadata: bool,
     pub is_downloading: bool,
     pub enable_snipper: bool,
@@ -42,6 +43,7 @@ impl Default for State {
         Self {
             url_input,
             metadata: None,
+            thumbnail: None,
             is_loading_metadata: false,
             is_downloading: false,
             enable_snipper: false,
@@ -68,6 +70,7 @@ impl State {
         }
 
         self.inspect_error = None;
+        self.thumbnail = None;
         self.is_loading_metadata = true;
 
         if let Some(tx) = ACTION_TX.get() {
@@ -161,6 +164,8 @@ impl State {
 mod dirs {
     use std::path::PathBuf;
     pub fn download_dir() -> Option<PathBuf> {
-        std::env::var("HOME").ok().map(|h| PathBuf::from(h).join("Downloads"))
+        std::env::var("HOME")
+            .ok()
+            .map(|h| PathBuf::from(h).join("Downloads"))
     }
 }

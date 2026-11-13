@@ -2,9 +2,9 @@ mod state;
 mod theme;
 mod view;
 
-use std::sync::Arc;
 use crossbeam_channel::unbounded;
-use rune::{AppSpec, App};
+use rune::{App, AppSpec, Pixels};
+use std::sync::Arc;
 use y2e_core::{CoreEvent, DownloadOptions, Engine};
 
 use crate::state::{GuiAction, State};
@@ -14,12 +14,16 @@ fn main() {
     let (action_tx, action_rx) = unbounded::<GuiAction>();
     let _ = state::ACTION_TX.set(action_tx);
 
-    let spec = AppSpec::new(
-        "YouTube to Everything (y2e)",
-        (820.0, 720.0),
-        State::default,
-        app_view,
-    );
+    let spec = AppSpec {
+        fonts: rune_theme_opencode::FONTS,
+        families: rune_theme_opencode::FAMILIES,
+        ..AppSpec::new(
+            "YouTube to Everything // Studio",
+            (1140.0, 740.0),
+            State::default,
+            app_view,
+        )
+    };
 
     let app = App::new(spec);
     let app_handle = Arc::new(app.handle());
@@ -42,9 +46,55 @@ fn main() {
                             tokio::spawn(async move {
                                 match Engine::fetch_metadata(&url).await {
                                     Ok(metadata) => {
+                                        let thumbnail_url = metadata.thumbnail.clone();
                                         handle.update(move |s, _tx| {
                                             s.on_inspect_success(metadata);
                                         });
+                                        if let Some(url) = thumbnail_url {
+                                            let preview_handle = handle.clone();
+                                            tokio::spawn(async move {
+                                                let Ok(output) =
+                                                    tokio::process::Command::new("curl")
+                                                        .args([
+                                                            "--fail",
+                                                            "--location",
+                                                            "--silent",
+                                                            "--max-time",
+                                                            "10",
+                                                            &url,
+                                                        ])
+                                                        .output()
+                                                        .await
+                                                else {
+                                                    return;
+                                                };
+                                                if !output.status.success() {
+                                                    return;
+                                                }
+                                                let bytes = output.stdout;
+                                                let preview =
+                                                    tokio::task::spawn_blocking(move || {
+                                                        let rgba = image::load_from_memory(&bytes)
+                                                            .ok()?
+                                                            .into_rgba8();
+                                                        let pixels = Pixels::new();
+                                                        pixels.set(
+                                                            rgba.width(),
+                                                            rgba.height(),
+                                                            rgba.into_raw(),
+                                                        );
+                                                        Some(pixels)
+                                                    })
+                                                    .await
+                                                    .ok()
+                                                    .flatten();
+                                                if let Some(preview) = preview {
+                                                    preview_handle.update(move |s, _tx| {
+                                                        s.thumbnail = Some(preview);
+                                                    });
+                                                }
+                                            });
+                                        }
                                     }
                                     Err(err) => {
                                         handle.update(move |s, _tx| {
@@ -60,7 +110,8 @@ fn main() {
                             preset,
                             output_dir,
                         } => {
-                            let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<CoreEvent>(64);
+                            let (event_tx, mut event_rx) =
+                                tokio::sync::mpsc::channel::<CoreEvent>(64);
                             let event_handle = handle.clone();
 
                             // Forward events to Rune UI
