@@ -7,7 +7,6 @@ mod theme;
 mod tint;
 mod view;
 
-use crossbeam_channel::unbounded;
 use rune::{App, AppSpec};
 use std::sync::Arc;
 use y2e_core::{CoreEvent, DownloadOptions, Engine};
@@ -16,7 +15,7 @@ use crate::state::{GuiAction, State};
 use crate::view::app_view;
 
 fn main() {
-    let (action_tx, action_rx) = unbounded::<GuiAction>();
+    let (action_tx, action_rx) = std::sync::mpsc::channel::<GuiAction>();
     let _ = state::ACTION_TX.set(action_tx);
 
     let spec = AppSpec {
@@ -86,7 +85,16 @@ fn main() {
 
                             // Forward events to Rune UI
                             tokio::spawn(async move {
+                                // yt-dlp reports ~100 times a second; the bar eases between
+                                // targets, so a handful of updates per second looks the same.
+                                let mut last = std::time::Instant::now();
                                 while let Some(ev) = event_rx.recv().await {
+                                    if matches!(ev, CoreEvent::Progress(_)) {
+                                        if last.elapsed() < std::time::Duration::from_millis(125) {
+                                            continue;
+                                        }
+                                        last = std::time::Instant::now();
+                                    }
                                     let h = event_handle.clone();
                                     h.update(move |s, _tx| {
                                         s.apply_core_event(ev);

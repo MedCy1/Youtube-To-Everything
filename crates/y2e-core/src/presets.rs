@@ -10,24 +10,6 @@ pub enum DownloadPreset {
 }
 
 impl DownloadPreset {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::MaxQuality => "Qualité Max (MP4)",
-            Self::Discord25Mb => "Discord (<25 Mo)",
-            Self::AudioMp3 => "Audio Podcast (MP3)",
-            Self::GifMeme => "Animation GIF",
-        }
-    }
-
-    pub fn description(&self) -> &'static str {
-        match self {
-            Self::MaxQuality => "Meilleure résolution disponible sans compromis",
-            Self::Discord25Mb => "Compressé automatiquement pour être partagé sur Discord sans Nitro",
-            Self::AudioMp3 => "Piste sonore seule avec jaquette et métadonnées",
-            Self::GifMeme => "Boucle GIF courte optimisée pour les mèmes",
-        }
-    }
-
     /// Rough size of the exported file in megabytes, from the measured output of
     /// the encoders used here. `None` when it depends too much on the source
     /// (the original streams are kept untouched).

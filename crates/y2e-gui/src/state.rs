@@ -1,7 +1,7 @@
 use crate::artwork::Artwork;
-use crossbeam_channel::Sender;
 use rune::{Key, KeyEvent, Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
+use std::sync::mpsc::Sender;
 use std::sync::OnceLock;
 use y2e_core::{format_time_seconds, CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
 
@@ -352,9 +352,6 @@ impl State {
 
     pub fn apply_core_event(&mut self, event: CoreEvent) {
         match event {
-            CoreEvent::MetadataLoaded(meta) => {
-                self.on_inspect_success(meta, None);
-            }
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;

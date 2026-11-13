@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::error::{Result, Y2eError};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VideoChapter {
@@ -104,7 +104,8 @@ mod tests {
             "chapters": null
         }"#;
 
-        let meta: VideoMetadata = serde_json::from_str(json_data).expect("Should deserialize with null chapters");
+        let meta: VideoMetadata =
+            serde_json::from_str(json_data).expect("Should deserialize with null chapters");
         assert_eq!(meta.id, "dQw4w9WgXcQ");
         assert_eq!(meta.duration_seconds(), 213);
         assert_eq!(meta.chapters().len(), 0);

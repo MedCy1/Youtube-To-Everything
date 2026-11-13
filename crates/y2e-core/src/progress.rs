@@ -1,6 +1,3 @@
-use regex::Regex;
-use std::sync::OnceLock;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgressUpdate {
     pub percent: f32,
@@ -9,43 +6,39 @@ pub struct ProgressUpdate {
     pub raw: String,
 }
 
-static TEMPLATE_RE: OnceLock<Regex> = OnceLock::new();
-static STANDARD_RE: OnceLock<Regex> = OnceLock::new();
+fn or_na(s: &str) -> String {
+    if s.is_empty() { "N/A" } else { s }.to_string()
+}
 
+/// Reads our own progress template, then yt-dlp's standard `[download]` line.
 pub fn parse_progress_line(line: &str) -> Option<ProgressUpdate> {
-    let template_re = TEMPLATE_RE.get_or_init(|| {
-        Regex::new(r"DOWNLOAD_PROGRESS:\s*([0-9.]+)%:\s*([^:]*):\s*(.*)").unwrap()
-    });
-
-    if let Some(caps) = template_re.captures(line) {
-        let percent = caps[1].parse::<f32>().unwrap_or(0.0);
-        let speed = caps[2].trim().to_string();
-        let eta = caps[3].trim().to_string();
-        return Some(ProgressUpdate {
-            percent,
-            speed: if speed.is_empty() { "N/A".to_string() } else { speed },
-            eta: if eta.is_empty() { "N/A".to_string() } else { eta },
-            raw: line.to_string(),
-        });
-    }
-
-    let standard_re = STANDARD_RE.get_or_init(|| {
-        Regex::new(r"\[download\]\s+([0-9.]+)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)").unwrap()
-    });
-
-    if let Some(caps) = standard_re.captures(line) {
-        let percent = caps[1].parse::<f32>().unwrap_or(0.0);
-        let speed = caps[2].trim().to_string();
-        let eta = caps[3].trim().to_string();
+    let raw = line.to_string();
+    if let Some((_, rest)) = line.split_once("DOWNLOAD_PROGRESS:") {
+        let mut parts = rest.splitn(3, ':');
+        let percent = parts.next()?.trim().strip_suffix('%')?.parse().ok()?;
+        let speed = or_na(parts.next()?.trim());
+        let eta = or_na(parts.next()?.trim());
         return Some(ProgressUpdate {
             percent,
             speed,
             eta,
-            raw: line.to_string(),
+            raw,
         });
     }
-
-    None
+    let (_, rest) = line.split_once("[download]")?;
+    let words: Vec<&str> = rest.split_whitespace().collect();
+    let percent = words.first()?.strip_suffix('%')?.parse().ok()?;
+    let at = words.iter().position(|w| *w == "at")?;
+    let (speed, eta) = match words.get(at + 1..at + 4)? {
+        [speed, "ETA", eta] => (speed.to_string(), eta.to_string()),
+        _ => return None,
+    };
+    Some(ProgressUpdate {
+        percent,
+        speed,
+        eta,
+        raw,
+    })
 }
 
 #[cfg(test)]
