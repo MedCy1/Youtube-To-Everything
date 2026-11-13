@@ -4,3 +4,10 @@ members = [
     "crates/y2e-gui",
 ]
 resolver = "2"
+
+# `cargo build --profile dist` for shipping: slower to build, about 40% smaller.
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+strip = true
