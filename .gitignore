@@ -2,3 +2,9 @@ target/
 **/*.rs.bk
 output/
 downloads/
+
+# Local copy of the Rune framework documentation, not part of the project.
+docs/rune/
+
+# Local helper to run the Rune framework examples, not part of the project.
+scripts/rune-example.sh
