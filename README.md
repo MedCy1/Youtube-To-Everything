@@ -131,7 +131,8 @@ crates/
 ├── y2e-core/   engine: yt-dlp, ffmpeg, presets, progress, tool management (no UI dependency)
 └── y2e-gui/    native interface: views, GPU effects, colour palette
 packaging/      desktop entry, icon and install script
-scripts/        release.sh
+scripts/        release and third-party license scripts
+third-party/    licenses of the embedded fonts
 specs/          feature specifications
 ```
 
@@ -141,26 +142,7 @@ The interface is built with [Rune](https://github.com/anomalyco/rune), a GPU UI 
 
 ## Contributing
 
-The checks that run in CI are the same ones to run locally:
-
-```bash
-cargo fmt --all --check
-cargo clippy --all --all-targets -- -D warnings
-cargo test --all
-```
-
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), because they become the release notes. Feature specifications live in [`specs/`](specs).
-
-Please open an issue before sending code. Because y2e is also offered under a commercial license, code contributions need a contributor agreement that lets the author license them that way.
-
-### Publishing a release
-
-```bash
-scripts/release.sh 0.2.0     # bumps the version, writes CHANGELOG.md, commits and tags
-git push --follow-tags       # the tag starts the release workflow
-```
-
-The `Release` workflow runs the tests, builds with the `dist` profile, and publishes the archive, its checksum and the release notes. A tag containing a hyphen (`v0.2.0-rc1`) is published as a pre-release. The script needs [`git-cliff`](https://git-cliff.org) (`cargo install git-cliff`).
+Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers the setup, the checks CI runs, the commit conventions and the terms contributions are made under. Open an issue before starting on anything larger than a small fix.
 
 ## Roadmap
 
@@ -181,9 +163,9 @@ Copyright (c) 2026 MedCy1.
 
 ### Commercial license
 
-If the AGPL does not fit your use, for example because you want to include y2e or its engine in a closed-source product, a separate commercial license is available from the author. Get in touch through this repository.
+If the AGPL does not fit your use, for example because you want to include y2e or its engine in a closed-source product, a separate commercial license is available from the author. [Open an issue](https://github.com/MedCy1/Youtube-To-Everything/issues/new?template=commercial_license.yml) with the commercial license template. Issues are public, so keep confidential details out of it: the author will reply to arrange a private way to continue.
 
-Third-party dependencies keep their own licenses, mostly MIT and Apache-2.0.
+Third-party dependencies keep their own licenses, mostly MIT and Apache-2.0. Each release archive includes `THIRD-PARTY-LICENSES.txt` with their notices and the licenses of the embedded fonts.
 
 ## Responsible use
 

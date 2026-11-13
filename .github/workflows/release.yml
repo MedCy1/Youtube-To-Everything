@@ -39,11 +39,18 @@ jobs:
       - name: Build
         run: cargo build --profile dist -p y2e-gui --locked
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+
+      - name: Third-party licenses
+        run: scripts/third-party.sh
+
       - name: Package
         run: |
           name="y2e-${GITHUB_REF_NAME}-linux-x86_64"
           mkdir "$name"
-          cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md LICENSE "$name/"
+          cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
           tar -czf "$name.tar.gz" "$name"
           sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
           echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"

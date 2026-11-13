@@ -1,0 +1,44 @@
+name: Bug report
+description: Something does not work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A link to a public video that shows the problem helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: y2e version
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Distribution, desktop environment (Wayland or X11) and GPU.
+      placeholder: Arch Linux, Hyprland (Wayland), AMD
+    validations:
+      required: true
+  - type: input
+    id: tools
+    attributes:
+      label: yt-dlp and ffmpeg versions
+      description: Output of `yt-dlp --version` and `ffmpeg -version`, or "installed by y2e".
+  - type: textarea
+    id: logs
+    attributes:
+      label: Messages
+      description: Any error text shown by the application or printed in the terminal.
+      render: text
