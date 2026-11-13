@@ -1,3 +1,4 @@
+mod ambient;
 mod state;
 mod theme;
 mod tint;
@@ -26,6 +27,7 @@ fn main() {
         )
     };
 
+    ambient::start();
     let app = App::new(spec);
     let app_handle = Arc::new(app.handle());
     let handle_for_worker = app_handle.clone();

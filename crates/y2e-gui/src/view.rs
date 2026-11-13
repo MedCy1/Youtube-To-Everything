@@ -1,9 +1,13 @@
 use rune::tok::motion;
-use rune::{col, el, row, spacer, text, text_input, Color, Cx, El, SurfaceFit, TextStyle};
+use rune::{
+    col, el, row, spacer, text, text_input, Color, Cx, El, Spring, SurfaceFit, TextStyle,
+    Transition,
+};
 use rune_kit::{Kit, RollingText};
 use std::f32::consts::PI;
 use y2e_core::{format_time_seconds, DownloadPreset};
 
+use crate::ambient::ambient;
 use crate::state::State;
 use crate::theme::{palette, Palette};
 
@@ -36,40 +40,67 @@ fn clear(color: Color) -> Color {
 
 /// The backdrop of the whole window: the source artwork once it has arrived,
 /// otherwise a slow-lit aurora in the brand colours.
+/// A layer slightly larger than the window, so drifting it never shows an edge.
+fn bleed() -> El {
+    el().pin(Some(-140.0), Some(-140.0), Some(-140.0), Some(-140.0))
+}
+
+fn drift() -> Spring {
+    Spring::new(0.5, 0.0)
+}
+
+/// The backdrop of the whole window: the source artwork once it has arrived,
+/// otherwise a slow-drifting aurora in the interface's own hue.
 fn scene(s: &State, p: &Palette) -> El {
+    let motion = ambient();
     let mut stage = fill_parent().fill(p.bg).clip_rounded(0.0);
 
     match (&s.thumbnail, &s.metadata) {
         (Some(art), Some(_)) => {
-            stage = stage.child(fill_parent().pixels_fit(art, SurfaceFit::Fill));
+            stage = stage.child(
+                fill_parent()
+                    .pixels_fit(art, SurfaceFit::Fill)
+                    .live_scale(motion.zoom.smooth(drift()))
+                    .transition(Transition::opacity()),
+            );
         }
         _ => {
-            let loaded = s.metadata.is_some();
-            let ember = p.ember;
             stage = stage
-                .child(fill_parent().radial_gradient(
-                    [if loaded { 0.2 } else { 0.8 }, 0.18],
-                    [760.0, 520.0],
-                    [
-                        (0.0, ember.alpha(0.95)),
-                        (0.5, p.accent.alpha(0.35)),
-                        (1.0, clear(p.accent)),
-                    ],
-                ))
-                .child(fill_parent().radial_gradient(
-                    [if loaded { 0.9 } else { 0.1 }, 0.9],
-                    [820.0, 560.0],
-                    [
-                        (0.0, p.violet.alpha(1.0)),
-                        (0.6, p.violet.alpha(0.45)),
-                        (1.0, clear(p.violet)),
-                    ],
-                ))
-                .child(fill_parent().radial_gradient(
-                    [0.5, 1.1],
-                    [900.0, 320.0],
-                    [(0.0, p.accent.alpha(0.55)), (1.0, clear(p.accent))],
-                ));
+                .child(
+                    bleed()
+                        .radial_gradient(
+                            [0.78, 0.2],
+                            [760.0, 520.0],
+                            [
+                                (0.0, p.ember.alpha(0.95)),
+                                (0.5, p.accent.alpha(0.35)),
+                                (1.0, clear(p.accent)),
+                            ],
+                        )
+                        .live_offset(motion.warm.smooth(drift())),
+                )
+                .child(
+                    bleed()
+                        .radial_gradient(
+                            [0.1, 0.9],
+                            [820.0, 560.0],
+                            [
+                                (0.0, p.violet.alpha(1.0)),
+                                (0.6, p.violet.alpha(0.45)),
+                                (1.0, clear(p.violet)),
+                            ],
+                        )
+                        .live_offset(motion.cool.smooth(drift())),
+                )
+                .child(
+                    bleed()
+                        .radial_gradient(
+                            [0.5, 1.1],
+                            [900.0, 320.0],
+                            [(0.0, p.accent.alpha(0.55)), (1.0, clear(p.accent))],
+                        )
+                        .live_offset(motion.glow.smooth(drift())),
+                );
         }
     }
 
@@ -135,6 +166,8 @@ fn url_pill(s: &State, p: &Palette, big: bool) -> El {
 
     let height = if big { 64.0 } else { 48.0 };
     row()
+        .key("url-pill")
+        .matched("url-pill")
         .w_full()
         .max_w(if big { 680.0 } else { 560.0 })
         .h(height)
@@ -166,6 +199,8 @@ fn logo(p: &Palette, size: f32) -> El {
 
 fn hero(s: &State, p: &Palette) -> El {
     let mut stack = col()
+        .key("hero")
+        .transition(Transition::blur(10.0))
         .w_full()
         .grow(1.0)
         .center()
@@ -224,6 +259,8 @@ fn hero(s: &State, p: &Palette) -> El {
 
 fn top_bar(s: &State, p: &Palette) -> El {
     row()
+        .key("top-bar")
+        .transition(Transition::opacity())
         .w_full()
         .center_y()
         .child(el().w(130.0).child(logo(p, 28.0)))
@@ -244,6 +281,8 @@ fn title_block(s: &State, p: &Palette) -> El {
         "Source chargée".to_string()
     };
     col()
+        .key("title")
+        .transition(Transition::offset(0.0, 28.0).combined(Transition::opacity()))
         .w_full()
         .gap(10.0)
         .child(
@@ -323,6 +362,7 @@ fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         .w_full()
         .h(64.0)
         .child(bars)
+        .child(scrub_marks(s, p))
         .child(
             fill_parent().child(
                 row()
@@ -333,6 +373,12 @@ fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .child(el().grow(((1.0 - fb) * 1000.0).max(0.0)).h_full()),
             ),
         )
+        .on_layout(|s: &mut State, rect| s.scrub.width = rect[2])
+        .on_pointer_move_local(|s: &mut State, event, tx| {
+            tx.live_only();
+            s.scrub_to(event.x);
+        })
+        .on_hover_change(|s: &mut State, inside, _| s.scrub.inside = inside)
         .on_drag(|s: &mut State, d, _| {
             let (phase, x, start_x, w) = (d.phase, d.x, d.start_x, d.w);
             s.drag_timeline(phase, x, start_x, w, &mut d.data);
@@ -393,6 +439,42 @@ fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                 .color(p.text_faint),
             ),
     )
+}
+
+/// Hairline and time label that follow the pointer along the waveform.
+fn scrub_marks(s: &State, p: &Palette) -> El {
+    let shown = if s.scrub.inside && s.duration() > 0 {
+        1.0
+    } else {
+        0.0
+    };
+    fill_parent()
+        .child(
+            el().pin(Some(0.0), Some(-6.0), None, Some(-6.0))
+                .w(2.0)
+                .radius(1.0)
+                .fill(p.text)
+                .opacity(shown * 0.85)
+                .motion(motion::SNAPPY)
+                .live_offset(&s.scrub.line),
+        )
+        .child(
+            el().pin(Some(0.0), Some(-46.0), None, None)
+                .w(76.0)
+                .h(28.0)
+                .radius(14.0)
+                .fill(p.text)
+                .opacity(shown)
+                .motion(motion::SNAPPY)
+                .center()
+                .live_offset(&s.scrub.tip)
+                .child(
+                    text("0:00:00")
+                        .live_text(&s.scrub.label)
+                        .font(figures(14.0, 600))
+                        .color(p.ink),
+                ),
+        )
 }
 
 /// A cream grab handle on one side of the selection.
@@ -530,6 +612,8 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
     };
 
     col()
+        .key("dock")
+        .transition(Transition::offset(0.0, 72.0).combined(Transition::opacity()))
         .w_full()
         .padding(22.0)
         .gap(20.0)

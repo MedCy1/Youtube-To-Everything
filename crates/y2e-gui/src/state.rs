@@ -1,8 +1,8 @@
 use crossbeam_channel::Sender;
-use rune::{Pixels, TextEdit};
+use rune::{Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use y2e_core::{CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
+use y2e_core::{format_time_seconds, CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
 
 /// Hue of the brand coral, used until artwork supplies its own.
 pub const BRAND_HUE: f32 = 35.0;
@@ -20,7 +20,30 @@ pub enum GuiAction {
     },
 }
 
+/// The pointer's position over the timeline. The line and its label move as
+/// live values, so hovering never rebuilds the view.
+pub struct Scrub {
+    pub line: Live<[f32; 2]>,
+    pub tip: Live<[f32; 2]>,
+    pub label: LiveText,
+    pub inside: bool,
+    pub width: f32,
+}
+
+impl Default for Scrub {
+    fn default() -> Self {
+        Self {
+            line: Live::new([0.0, 0.0]),
+            tip: Live::new([0.0, 0.0]),
+            label: LiveText::new("0:00"),
+            inside: false,
+            width: 0.0,
+        }
+    }
+}
+
 pub struct State {
+    pub scrub: Scrub,
     pub url_input: TextEdit,
     pub metadata: Option<VideoMetadata>,
     pub thumbnail: Option<Pixels>,
@@ -45,6 +68,7 @@ impl Default for State {
         let mut url_input = TextEdit::new("");
         url_input.focused = true;
         Self {
+            scrub: Scrub::default(),
             url_input,
             metadata: None,
             thumbnail: None,
@@ -126,6 +150,18 @@ impl State {
             .as_ref()
             .map(|meta| meta.duration_seconds())
             .unwrap_or(0)
+    }
+
+    pub fn scrub_to(&mut self, x: f32) {
+        let total = self.duration();
+        if total == 0 || self.scrub.width <= 0.0 {
+            return;
+        }
+        let x = x.clamp(0.0, self.scrub.width);
+        let seconds = (x / self.scrub.width * total as f32).round() as u64;
+        self.scrub.line.set([x, 0.0]);
+        self.scrub.tip.set([x - 38.0, 0.0]);
+        self.scrub.label.set(format_time_seconds(seconds));
     }
 
     /// Whole video selected again: the cut is switched off.
