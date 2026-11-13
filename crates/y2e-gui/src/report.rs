@@ -59,17 +59,26 @@ const KNOWN: &[(&[&str], &str)] = &[
     ),
 ];
 
-/// The landing card for tools the app cannot run without.
-pub fn missing_tools(tools: &[&str]) -> Report {
+/// The landing card for tools the app cannot run without. `can_install`: the
+/// app can fetch them itself, so say what that costs.
+pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
+    let headline = match tools {
+        ["yt-dlp"] => "yt-dlp est introuvable.",
+        ["ffmpeg"] => "ffmpeg est introuvable.",
+        _ => "yt-dlp et ffmpeg sont introuvables.",
+    };
+    let cause = if can_install {
+        let mb: u32 = tools
+            .iter()
+            .map(|t| if *t == "ffmpeg" { 150 } else { 40 })
+            .sum();
+        format!("y2e peut les installer pour vous (environ {mb} Mo à télécharger, une seule fois).")
+    } else {
+        "Installez-les avec votre gestionnaire de paquets, puis relancez y2e.".to_string()
+    };
     Report {
-        headline: match tools {
-            ["yt-dlp"] => "yt-dlp est introuvable.",
-            ["ffmpeg"] => "ffmpeg est introuvable.",
-            _ => "yt-dlp et ffmpeg sont introuvables.",
-        },
-        cause: Some(
-            "Installez-les avec votre gestionnaire de paquets, puis relancez y2e.".to_string(),
-        ),
+        headline,
+        cause: Some(cause),
     }
 }
 
@@ -172,11 +181,11 @@ mod tests {
     #[test]
     fn names_the_missing_tools() {
         assert_eq!(
-            missing_tools(&["ffmpeg"]).headline,
+            missing_tools(&["ffmpeg"], false).headline,
             "ffmpeg est introuvable."
         );
         assert_eq!(
-            missing_tools(&["yt-dlp", "ffmpeg"]).headline,
+            missing_tools(&["yt-dlp", "ffmpeg"], true).headline,
             "yt-dlp et ffmpeg sont introuvables."
         );
     }

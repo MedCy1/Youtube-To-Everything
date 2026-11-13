@@ -73,6 +73,22 @@ fn main() {
                                 }
                             });
                         }
+                        GuiAction::InstallTools(tools) => {
+                            tokio::spawn(async move {
+                                let progress = handle.clone();
+                                let result = y2e_core::tools::install(&tools, move |phase| {
+                                    progress.update(move |s, _| s.installing = Some(phase));
+                                })
+                                .await;
+                                handle.update(move |s, tx| {
+                                    tx.animated();
+                                    s.finish_install(result.map_err(|e| e.to_string()));
+                                    if s.tools_ready() {
+                                        tx.focus("url_input", false);
+                                    }
+                                });
+                            });
+                        }
                         GuiAction::StartDownload {
                             url,
                             time_range,

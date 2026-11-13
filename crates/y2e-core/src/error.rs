@@ -15,6 +15,9 @@ pub enum Y2eError {
         stderr: String,
     },
 
+    #[error("{0}")]
+    Install(String),
+
     #[error("Invalid time range: start ({start_seconds}s) must be strictly less than end ({end_seconds}s)")]
     InvalidTimeRange {
         start_seconds: u64,

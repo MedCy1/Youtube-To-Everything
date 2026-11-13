@@ -37,11 +37,14 @@ pub(super) fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Pa
 /// The single URL field, wide in the empty state, a compact pill once a source is loaded.
 pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
     let invalid = s.inspect_error.is_some() && !s.is_loading_metadata;
+    // Without the tools there is nothing to read: the field is shown, but dimmed and inert.
+    let locked = !s.tools_ready();
     let input = text_input(&s.url_input, face(if big { 17.0 } else { 15.0 }, 500))
         .key("url_input")
         .grow(1.0)
         .single_line()
         .label("Lien de la vidéo YouTube")
+        .disabled(locked)
         .placeholder("Collez un lien YouTube", p.text_faint)
         .on_edit(|s: &mut State| &mut s.url_input)
         .on_submit(|s: &mut State, _| {
@@ -58,9 +61,10 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         },
         "inspect",
         big,
-        s.is_loading_metadata,
+        s.is_loading_metadata || locked,
         p,
     )
+    .disabled(locked)
     .on_press(|s: &mut State| {
         if !s.is_loading_metadata {
             s.trigger_inspect();
@@ -91,8 +95,13 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
             },
         )
         .motion(motion::SNAPPY)
+        .opacity(if locked { 0.45 } else { 1.0 })
         // The whole pill is a click target for the field, not just its text.
-        .on_press_tx(|_: &mut State, tx| tx.focus("url_input", false))
+        .on_press_tx(|s: &mut State, tx| {
+            if s.tools_ready() {
+                tx.focus("url_input", false);
+            }
+        })
         .child(input)
         .child(action)
 }
@@ -174,36 +183,37 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         .child(url_pill(s, p, true));
 
     if s.is_loading_metadata {
-        stack = stack.child(
-            row()
-                .key("hero-loading")
-                .transition(Transition::opacity())
-                .gap(14.0)
-                .center_y()
-                .child(
-                    // Indeterminate: a segment sweeps along the track until the source arrives.
-                    row()
-                        .w(150.0)
-                        .h(4.0)
-                        .radius(2.0)
-                        .clip_rounded(2.0)
-                        .fill(p.chip)
-                        .child(
-                            el().w(54.0)
-                                .h_full()
-                                .radius(2.0)
-                                .fill(p.accent)
-                                .looping(LoopSpec::slide(1.25, [-1.0, 0.0], [3.0, 0.0])),
-                        ),
-                )
-                .child(
-                    text("Lecture de la source")
-                        .font(face(15.0, 500))
-                        .color(p.text_dim),
-                ),
-        );
+        stack = stack.child(loading_row("hero-loading", "Lecture de la source", p));
+    } else if let Some(phase) = &s.installing {
+        stack = stack.child(loading_row("hero-install", phase, p));
     } else if !s.missing_tools.is_empty() {
-        stack = stack.child(error_card(&missing_tools(&s.missing_tools), p));
+        let can_install = y2e_core::tools::install_supported();
+        let failed = s.install_error.is_some();
+        let report = match &s.install_error {
+            Some(cause) => Report {
+                headline: "L'installation a échoué.",
+                cause: Some(cause.clone()),
+            },
+            None => missing_tools(&s.missing_tools, can_install),
+        };
+        stack = stack.child(error_card(&report, p));
+        if can_install {
+            stack = stack.child(
+                solid_button(
+                    if failed {
+                        "Réessayer"
+                    } else {
+                        "Installer automatiquement"
+                    },
+                    "install-tools",
+                    true,
+                    false,
+                    p,
+                )
+                .default_button()
+                .on_press(|s: &mut State| s.install_tools()),
+            );
+        }
     } else if let Some(error) = &s.inspect_error {
         stack = stack.child(error_card(&explain(error), p));
     } else {
@@ -218,4 +228,34 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         });
     }
     stack
+}
+
+/// An indeterminate bar with a caption, for work whose length is not known.
+fn loading_row(key: &str, label: &str, p: &Palette) -> El {
+    row()
+        .key(key.to_string())
+        .transition(Transition::opacity())
+        .gap(14.0)
+        .center_y()
+        .child(
+            // A segment sweeps along the track until the work is done.
+            row()
+                .w(150.0)
+                .h(4.0)
+                .radius(2.0)
+                .clip_rounded(2.0)
+                .fill(p.chip)
+                .child(
+                    el().w(54.0)
+                        .h_full()
+                        .radius(2.0)
+                        .fill(p.accent)
+                        .looping(LoopSpec::slide(1.25, [-1.0, 0.0], [3.0, 0.0])),
+                ),
+        )
+        .child(
+            text(label.to_string())
+                .font(face(15.0, 500))
+                .color(p.text_dim),
+        )
 }

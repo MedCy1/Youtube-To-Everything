@@ -13,6 +13,7 @@ pub static ACTION_TX: OnceLock<Sender<GuiAction>> = OnceLock::new();
 #[derive(Debug, Clone)]
 pub enum GuiAction {
     InspectMetadata(String),
+    InstallTools(Vec<&'static str>),
     StartDownload {
         url: String,
         time_range: Option<TimeRange>,
@@ -51,6 +52,9 @@ pub struct State {
     pub clipboard_link: bool,
     /// External tools not found at startup (`yt-dlp`, `ffmpeg`).
     pub missing_tools: Vec<&'static str>,
+    /// What the installer is doing, while it runs.
+    pub installing: Option<String>,
+    pub install_error: Option<String>,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -77,12 +81,15 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         let mut url_input = TextEdit::new("");
-        url_input.focused = true;
+        let missing_tools = y2e_core::tools::missing();
+        url_input.focused = missing_tools.is_empty();
         Self {
             scrub: Scrub::default(),
             export_hover: false,
             clipboard_link: false,
-            missing_tools: y2e_core::Engine::missing_tools(),
+            missing_tools,
+            installing: None,
+            install_error: None,
             completed: 0,
             url_input,
             metadata: None,
@@ -107,7 +114,15 @@ impl Default for State {
 }
 
 impl State {
+    /// Nothing can be read or exported until the external tools are there.
+    pub fn tools_ready(&self) -> bool {
+        self.missing_tools.is_empty()
+    }
+
     pub fn trigger_inspect(&mut self) {
+        if !self.tools_ready() {
+            return;
+        }
         let url = self.url_input.text.trim().to_string();
         if url.is_empty() {
             self.inspect_error = Some("Veuillez saisir ou coller une URL YouTube.".to_string());
@@ -166,7 +181,7 @@ impl State {
     /// the landing view is waiting for one.
     pub fn offer_clipboard_link(&mut self, clipboard_text: &str) {
         let idle = !self.showing_source() && !self.is_loading_metadata;
-        if !idle || !self.url_input.text.is_empty() {
+        if !idle || !self.tools_ready() || !self.url_input.text.is_empty() {
             return;
         }
         if let Some(link) = crate::link::youtube_link(clipboard_text) {
@@ -339,6 +354,25 @@ impl State {
         self.thumbnail = artwork.map(|art| art.pixels);
         self.is_loading_metadata = false;
         self.inspect_error = None;
+    }
+
+    pub fn install_tools(&mut self) {
+        if self.installing.is_some() {
+            return;
+        }
+        if let Some(tx) = ACTION_TX.get() {
+            self.installing = Some("Préparation".to_string());
+            self.install_error = None;
+            let _ = tx.send(GuiAction::InstallTools(self.missing_tools.clone()));
+        }
+    }
+
+    pub fn finish_install(&mut self, result: Result<(), String>) {
+        self.installing = None;
+        match result {
+            Ok(()) => self.missing_tools = y2e_core::tools::missing(),
+            Err(err) => self.install_error = Some(err),
+        }
     }
 
     pub fn on_inspect_error(&mut self, err: String) {

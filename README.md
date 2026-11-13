@@ -15,7 +15,7 @@ Télécharger une vidéo YouTube, n'en garder que le passage qui compte, et l'ex
 
 ## Lancer
 
-Prérequis : Rust, `yt-dlp`, `ffmpeg` et `curl` dans le `PATH`.
+Prérequis : Rust et `curl`. `yt-dlp` et `ffmpeg` sont utilisés s'ils sont dans le `PATH` ; sinon l'accueil propose de les installer (Linux x86_64 et aarch64 : environ 190 Mo à télécharger, 390 Mo sur disque, dans `~/.local/share/y2e/bin`, chaque fichier étant vérifié par sa somme de contrôle).
 
 ```bash
 cargo run --release -p y2e-gui
