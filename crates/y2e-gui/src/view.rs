@@ -1,7 +1,7 @@
 use rune::tok::motion;
 use rune::{
-    col, el, row, spacer, text, text_input, Color, Cx, El, Spring, SurfaceFit, TextStyle,
-    Transition,
+    col, el, row, spacer, text, text_input, Beat, Color, Cx, El, Sequence, Spring, SurfaceFit,
+    TextStyle, Transition,
 };
 use rune_kit::{Kit, RollingText};
 use std::f32::consts::PI;
@@ -70,7 +70,7 @@ fn scene(s: &State, p: &Palette) -> El {
                     bleed()
                         .radial_gradient(
                             [0.78, 0.2],
-                            [760.0, 520.0],
+                            [900.0, 620.0],
                             [
                                 (0.0, p.ember.alpha(0.95)),
                                 (0.5, p.accent.alpha(0.35)),
@@ -520,6 +520,22 @@ fn preset_chip(
         .on_press(move |s: &mut State| s.preset = preset)
 }
 
+/// A ring that leaves the button once, each time an export completes.
+fn completion_ring(s: &State, p: &Palette) -> El {
+    const RING: &[Beat] = &[
+        Beat::new(0.0).opacity(0.9).scale(1.0),
+        Beat::new(0.7).opacity(0.0).scale(1.28),
+    ];
+    if s.completed == 0 || s.is_downloading {
+        return el();
+    }
+    el().key(format!("ring-{}", s.completed))
+        .pin(Some(-2.0), Some(-2.0), Some(-2.0), Some(-2.0))
+        .radius(30.0)
+        .border(3.0, p.accent_hi)
+        .sequence(Sequence::new(RING))
+}
+
 fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
     let progress = s.progress_percent.clamp(0.0, 100.0);
     let button = el()
@@ -581,8 +597,10 @@ fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
     }
 }
 
-fn notice(color: Color, label: &str, detail: String, p: &Palette) -> El {
+fn notice(key: &str, color: Color, label: &str, detail: String, p: &Palette) -> El {
     row()
+        .key(key)
+        .transition(Transition::offset(0.0, 24.0).combined(Transition::opacity()))
         .w_full()
         .px(18.0)
         .py(12.0)
@@ -647,7 +665,10 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                 .child(spacer())
                 .child(stats)
                 .child(el().w(8.0))
-                .child(export_button(s, p, k)),
+                .child(
+                    el().child(export_button(s, p, k))
+                        .child(completion_ring(s, p)),
+                ),
         )
 }
 
@@ -665,15 +686,32 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
             .child(spacer())
             .child(title_block(s, &p));
         if let Some(path) = &s.downloaded_file {
-            layout = layout.child(notice(
-                p.success,
-                "Export terminé",
-                path.display().to_string(),
-                &p,
-            ));
+            layout = layout.child(
+                notice(
+                    "notice-done",
+                    p.success,
+                    "Export terminé",
+                    path.display().to_string(),
+                    &p,
+                )
+                .child(
+                    el().h(30.0)
+                        .px(14.0)
+                        .radius(15.0)
+                        .fill(p.chip)
+                        .press_scale(0.96)
+                        .center()
+                        .child(
+                            text("Ouvrir le dossier")
+                                .font(face(13.0, 600))
+                                .color(p.text),
+                        )
+                        .on_press(|s: &mut State| s.reveal_download()),
+                ),
+            );
         }
         if let Some(error) = &s.download_error {
-            layout = layout.child(notice(p.danger, "Échec", error.clone(), &p));
+            layout = layout.child(notice("notice-error", p.danger, "Échec", error.clone(), &p));
         }
         layout = layout.child(dock(s, &p, &k));
     }

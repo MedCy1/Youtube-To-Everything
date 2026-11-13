@@ -44,6 +44,8 @@ impl Default for Scrub {
 
 pub struct State {
     pub scrub: Scrub,
+    /// Number of finished exports, so each completion replays its celebration.
+    pub completed: u32,
     pub url_input: TextEdit,
     pub metadata: Option<VideoMetadata>,
     pub thumbnail: Option<Pixels>,
@@ -69,6 +71,7 @@ impl Default for State {
         url_input.focused = true;
         Self {
             scrub: Scrub::default(),
+            completed: 0,
             url_input,
             metadata: None,
             thumbnail: None,
@@ -164,6 +167,21 @@ impl State {
         self.scrub.label.set(format_time_seconds(seconds));
     }
 
+    /// Opens the folder holding the last export in the system file manager.
+    pub fn reveal_download(&self) {
+        let Some(folder) = self.downloaded_file.as_ref().and_then(|path| path.parent()) else {
+            return;
+        };
+        let opener = if cfg!(target_os = "macos") {
+            "open"
+        } else if cfg!(target_os = "windows") {
+            "explorer"
+        } else {
+            "xdg-open"
+        };
+        let _ = std::process::Command::new(opener).arg(folder).spawn();
+    }
+
     /// Whole video selected again: the cut is switched off.
     pub fn reset_range(&mut self) {
         self.start_time_secs = 0;
@@ -248,6 +266,7 @@ impl State {
                 self.progress_percent = 100.0;
                 self.status_text = "Opération terminée avec succès !".to_string();
                 self.downloaded_file = Some(output_path);
+                self.completed += 1;
             }
             CoreEvent::Error(err) => {
                 self.is_downloading = false;

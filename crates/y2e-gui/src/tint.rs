@@ -36,7 +36,7 @@ pub fn dominant_hue(rgba: &[u8], width: u32, height: u32) -> Option<f32> {
     for pixel in rgba.as_chunks::<4>().0.iter().step_by(stride) {
         let [l, a, b] = oklab([pixel[0], pixel[1], pixel[2]]);
         let chroma = a.hypot(b);
-        if l < 0.25 || chroma < 0.04 {
+        if l < 0.25 || chroma < 0.06 {
             continue;
         }
         let hue = b.atan2(a).to_degrees().rem_euclid(360.0);
