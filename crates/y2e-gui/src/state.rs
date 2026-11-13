@@ -437,15 +437,6 @@ impl State {
     }
 }
 
-mod dirs {
-    use std::path::PathBuf;
-    pub fn download_dir() -> Option<PathBuf> {
-        std::env::var("HOME")
-            .ok()
-            .map(|h| PathBuf::from(h).join("Downloads"))
-    }
-}
-
 /// One end of `range` moved by `delta` seconds, kept inside `0..=total` and
 /// at least one second long.
 fn nudged(range: (u64, u64), total: u64, start: bool, delta: i64) -> (u64, u64) {

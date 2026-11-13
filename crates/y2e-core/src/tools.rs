@@ -2,7 +2,8 @@
 //! they are missing. A tool on `PATH` always wins; otherwise the copy the app
 //! installed in its own data directory is used.
 
-use std::ffi::OsString;
+use std::env::consts::{ARCH, EXE_SUFFIX, OS};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
@@ -13,27 +14,55 @@ const TOOLS: [&str; 2] = ["yt-dlp", "ffmpeg"];
 const YTDLP_BASE: &str = "https://github.com/yt-dlp/yt-dlp/releases/latest/download";
 const FFMPEG_BASE: &str = "https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download";
 
-fn data_dir(xdg: Option<OsString>, home: Option<OsString>) -> Option<PathBuf> {
-    let base = match xdg.filter(|v| !v.is_empty()) {
-        Some(xdg) => PathBuf::from(xdg),
-        None => PathBuf::from(home?).join(".local/share"),
-    };
-    Some(base.join("y2e").join("bin"))
+/// The file name of a tool on this system (`yt-dlp.exe` on Windows).
+fn exe(tool: &str) -> String {
+    format!("{tool}{EXE_SUFFIX}")
 }
 
-/// Where tools fetched by the app live.
+/// A command for a helper program. On Windows it gets no console window, which
+/// would otherwise flash on screen each time the app runs something.
+pub fn background(program: impl AsRef<OsStr>) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    cmd
+}
+
+/// Where tools fetched by the app live: `~/.local/share/y2e/bin` on Linux,
+/// `~/Library/Application Support/y2e/bin` on macOS, `%LOCALAPPDATA%\y2e\bin` on Windows.
 pub fn managed_dir() -> Option<PathBuf> {
-    data_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
+    dirs::data_local_dir().map(|dir| dir.join("y2e").join("bin"))
+}
+
+/// Where the system keeps its tools: `PATH`, plus the Homebrew folders on
+/// macOS, which an app started from the Finder does not get in its `PATH`.
+fn search_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).collect())
+        .unwrap_or_default();
+    if cfg!(target_os = "macos") {
+        dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    }
+    dirs
+}
+
+/// The copy of `tool` the system provides.
+fn system_copy(tool: &str) -> Option<PathBuf> {
+    let name = exe(tool);
+    search_dirs()
+        .into_iter()
+        .map(|dir| dir.join(&name))
+        .find(|path| path.is_file())
 }
 
 pub(crate) fn on_path(tool: &str) -> bool {
-    std::env::var_os("PATH")
-        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(tool).is_file()))
+    system_copy(tool).is_some()
 }
 
 fn installed(tool: &str) -> Option<PathBuf> {
     managed_dir()
-        .map(|dir| dir.join(tool))
+        .map(|dir| dir.join(exe(tool)))
         .filter(|path| path.is_file())
 }
 
@@ -45,15 +74,22 @@ fn managed(tool: &str) -> Option<PathBuf> {
 
 /// What to run for `tool`: the one on `PATH`, else the app's own copy.
 pub fn command(tool: &str) -> Command {
-    match managed(tool) {
-        Some(path) => Command::new(path),
-        None => Command::new(tool),
+    match system_copy(tool).or_else(|| installed(tool)) {
+        Some(path) => background(path),
+        None => background(tool),
     }
 }
 
-/// Where yt-dlp should look for ffmpeg, when only the app's copy exists.
+/// Where yt-dlp should look for ffmpeg, when it is not in `PATH` (the app's own
+/// copy, or Homebrew's on macOS).
 pub fn ffmpeg_location() -> Option<PathBuf> {
-    managed("ffmpeg").and_then(|path| path.parent().map(Path::to_path_buf))
+    let dir = system_copy("ffmpeg")
+        .or_else(|| installed("ffmpeg"))?
+        .parent()?
+        .to_path_buf();
+    let in_path = std::env::var_os("PATH")
+        .is_some_and(|paths| std::env::split_paths(&paths).any(|entry| entry == dir));
+    (!in_path).then_some(dir)
 }
 
 /// The tools that can be found neither on `PATH` nor among the app's own.
@@ -69,17 +105,21 @@ fn asset(tool: &str, os: &str, arch: &str) -> Option<&'static str> {
     Some(match (tool, os, arch) {
         ("yt-dlp", "linux", "x86_64") => "yt-dlp_linux",
         ("yt-dlp", "linux", "aarch64") => "yt-dlp_linux_aarch64",
+        ("yt-dlp", "macos", _) => "yt-dlp_macos",
+        ("yt-dlp", "windows", "x86_64") => "yt-dlp.exe",
+        ("yt-dlp", "windows", "aarch64") => "yt-dlp_arm64.exe",
         ("ffmpeg", "linux", "x86_64") => "ffmpeg-master-latest-linux64-gpl.tar.xz",
         ("ffmpeg", "linux", "aarch64") => "ffmpeg-master-latest-linuxarm64-gpl.tar.xz",
+        ("ffmpeg", "windows", "x86_64") => "ffmpeg-master-latest-win64-gpl.zip",
+        ("ffmpeg", "windows", "aarch64") => "ffmpeg-master-latest-winarm64-gpl.zip",
+        // No ffmpeg builds are published for macOS: Homebrew provides it.
         _ => return None,
     })
 }
 
-/// Whether the app can fetch its tools itself on this system.
-pub fn install_supported() -> bool {
-    TOOLS
-        .into_iter()
-        .all(|tool| asset(tool, std::env::consts::OS, std::env::consts::ARCH).is_some())
+/// Whether the app can fetch `tool` itself on this system.
+pub fn installable(tool: &str) -> bool {
+    asset(tool, OS, ARCH).is_some()
 }
 
 /// A tool that has a newer version worth installing.
@@ -162,7 +202,7 @@ fn expected_hash<'a>(listing: &'a str, file: &str) -> Option<&'a str> {
 }
 
 async fn fetch(url: &str, to: &Path) -> Result<()> {
-    let mut cmd = Command::new("curl");
+    let mut cmd = background("curl");
     cmd.args(["-fL", "--silent", "--show-error", "--retry", "2", "-o"])
         .arg(to)
         .arg(url);
@@ -170,7 +210,7 @@ async fn fetch(url: &str, to: &Path) -> Result<()> {
 }
 
 async fn fetch_text(url: &str) -> Result<String> {
-    let out = Command::new("curl")
+    let out = background("curl")
         .args(["-fsSL", "--retry", "2", url])
         .output()
         .await?;
@@ -181,12 +221,26 @@ async fn fetch_text(url: &str) -> Result<String> {
 }
 
 async fn sha256(file: &Path) -> Result<String> {
-    let out = Command::new("sha256sum").arg(file).output().await?;
-    String::from_utf8_lossy(&out.stdout)
-        .split_whitespace()
-        .next()
-        .map(str::to_string)
-        .ok_or_else(|| failure("Verification returned nothing."))
+    use sha2::{Digest, Sha256};
+    let file = file.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let mut hasher = Sha256::new();
+        std::io::copy(&mut std::fs::File::open(file)?, &mut hasher)?;
+        Ok(format!("{:x}", hasher.finalize()))
+    })
+    .await
+    .map_err(|err| failure(err.to_string()))?
+}
+
+/// The `tar` that reads zip and xz archives alike: GNU tar on Linux, bsdtar on
+/// macOS and Windows (where the system one is used, not one a PATH entry shadows).
+fn tar() -> Command {
+    match std::env::var_os("SystemRoot") {
+        Some(root) if cfg!(windows) => {
+            background(Path::new(&root).join("System32").join("tar.exe"))
+        }
+        _ => background("tar"),
+    }
 }
 
 #[cfg(unix)]
@@ -209,7 +263,7 @@ fn make_executable(_: &Path) -> Result<()> {
 pub async fn install(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> {
     install_all(tools, say).await.map_err(|err| match err {
         Y2eError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => {
-            failure("curl, tar or sha256sum is missing on this system.")
+            failure("curl or tar is missing on this system.")
         }
         other => other,
     })
@@ -246,22 +300,25 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
         say(format!("Installing {tool}"));
         if *tool == "yt-dlp" {
             make_executable(&part)?;
-            tokio::fs::rename(&part, dir.join("yt-dlp")).await?;
+            tokio::fs::rename(&part, dir.join(exe("yt-dlp"))).await?;
         } else {
             // The archive holds ffmpeg and ffprobe (yt-dlp needs both) under <name>/bin/.
             let staging = dir.join("ffmpeg-new");
             let _ = tokio::fs::remove_dir_all(&staging).await;
             tokio::fs::create_dir_all(&staging).await?;
-            let mut cmd = Command::new("tar");
-            cmd.arg("-xJf").arg(&part).arg("-C").arg(&staging).args([
-                "--strip-components=2",
-                "--wildcards",
-                "*/bin/ffmpeg",
-                "*/bin/ffprobe",
+            let mut cmd = tar();
+            cmd.arg("-xf").arg(&part).arg("-C").arg(&staging);
+            cmd.arg("--strip-components=2");
+            if OS == "linux" {
+                cmd.arg("--wildcards"); // GNU tar needs it, bsdtar does not know it
+            }
+            cmd.args([
+                format!("*/bin/{}", exe("ffmpeg")),
+                format!("*/bin/{}", exe("ffprobe")),
             ]);
             run_quiet(cmd, "tar").await?;
             for bin in ["ffmpeg", "ffprobe"] {
-                tokio::fs::rename(staging.join(bin), dir.join(bin)).await?;
+                tokio::fs::rename(staging.join(exe(bin)), dir.join(exe(bin))).await?;
             }
             let _ = tokio::fs::remove_dir_all(&staging).await;
             let _ = tokio::fs::remove_file(&part).await;
@@ -276,17 +333,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keeps_the_tools_in_the_users_data_directory() {
-        let home = Some(OsString::from("/home/a"));
-        assert_eq!(
-            data_dir(None, home.clone()),
-            Some(PathBuf::from("/home/a/.local/share/y2e/bin"))
-        );
-        assert_eq!(
-            data_dir(Some(OsString::from("/x")), home),
-            Some(PathBuf::from("/x/y2e/bin"))
-        );
-        assert_eq!(data_dir(None, None), None);
+    fn keeps_the_tools_in_a_folder_of_its_own() {
+        let dir = managed_dir().expect("a data folder");
+        assert!(dir.ends_with("y2e/bin") || dir.ends_with(r"y2e\bin"));
     }
 
     #[test]
@@ -304,9 +353,28 @@ mod tests {
     }
 
     #[test]
-    fn only_linux_builds_are_known() {
-        assert!(asset("ffmpeg", "linux", "x86_64").is_some());
-        assert!(asset("yt-dlp", "windows", "x86_64").is_none());
+    fn builds_are_known_where_they_are_published() {
+        assert_eq!(asset("yt-dlp", "windows", "x86_64"), Some("yt-dlp.exe"));
+        assert!(asset("ffmpeg", "windows", "x86_64").is_some_and(|f| f.ends_with(".zip")));
+        assert!(asset("yt-dlp", "macos", "aarch64").is_some());
+        assert!(asset("ffmpeg", "macos", "aarch64").is_none());
+        assert!(asset("ffmpeg", "freebsd", "x86_64").is_none());
+    }
+
+    #[test]
+    fn a_hash_is_computed_without_external_tools() {
+        let file = std::env::temp_dir().join("y2e-sha-test");
+        std::fs::write(&file, "abc").unwrap();
+        let hash = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(sha256(&file))
+            .unwrap();
+        let _ = std::fs::remove_file(&file);
+        assert_eq!(
+            hash,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     /// Downloads about 190 MB: `cargo test -p y2e-core -- --ignored installs_for_real`,
@@ -315,15 +383,22 @@ mod tests {
     #[ignore]
     async fn installs_for_real() {
         let steps = std::sync::Mutex::new(Vec::new());
-        install(&["yt-dlp", "ffmpeg"], |s| steps.lock().unwrap().push(s))
+        let ours: Vec<&str> = TOOLS.into_iter().filter(|t| installable(t)).collect();
+        install(&ours, |s| steps.lock().unwrap().push(s))
             .await
             .unwrap();
-        assert!(missing().is_empty());
         println!("{:?}", steps.lock().unwrap());
-        let version = command("yt-dlp").arg("--version").output().await.unwrap();
-        assert!(version.status.success());
-        let ffmpeg = command("ffmpeg").arg("-version").output().await.unwrap();
-        assert!(ffmpeg.status.success());
+        for tool in ours {
+            let flag = if tool == "ffmpeg" {
+                "-version"
+            } else {
+                "--version"
+            };
+            let out = command(tool).arg(flag).output().await.unwrap();
+            assert!(out.status.success(), "{tool} does not run");
+        }
+        // What the system gives (Homebrew's ffmpeg on macOS) completes the set.
+        assert!(missing().is_empty(), "still missing: {:?}", missing());
     }
 
     /// Needs the tools installed by `installs_for_real` and network access.

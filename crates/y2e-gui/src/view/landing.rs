@@ -192,7 +192,10 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
     } else if let Some(phase) = &s.installing {
         stack = stack.child(loading_row("hero-install", phase, p));
     } else if !s.missing_tools.is_empty() {
-        let can_install = y2e_core::tools::install_supported();
+        let can_install = s
+            .missing_tools
+            .iter()
+            .all(|t| y2e_core::tools::installable(t));
         let failed = s.install_error.is_some();
         let report = match &s.install_error {
             Some(cause) => Report {

@@ -26,3 +26,11 @@ inherits = "release"
 lto = "fat"
 codegen-units = 1
 strip = true
+
+# Rune builds against patched copies of these crates (macOS and Windows input,
+# taskbar and shaping fixes), and a patch in a dependency's workspace does not
+# carry over: an application has to repeat it, as Rune's own manifest says.
+[patch.crates-io]
+wgpu-hal = { git = "https://github.com/anomalyco/rune", rev = "09ab92a5" }
+winit = { git = "https://github.com/anomalyco/rune", rev = "09ab92a5" }
+parley_engine = { git = "https://github.com/anomalyco/rune", rev = "09ab92a5" }

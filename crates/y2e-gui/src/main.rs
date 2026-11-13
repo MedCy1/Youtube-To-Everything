@@ -1,3 +1,9 @@
+// No console window behind the interface on Windows.
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
 mod artwork;
 mod gfx;
 mod link;

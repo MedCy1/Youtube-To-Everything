@@ -59,6 +59,18 @@ const KNOWN: &[(&[&str], &str)] = &[
     ),
 ];
 
+/// How to get tools the app cannot fetch itself, on this system.
+fn install_by_hand(tools: &[&str]) -> String {
+    let list = tools.join(" ");
+    if cfg!(target_os = "macos") {
+        format!("Install them with Homebrew (brew install {list}), then restart y2e.")
+    } else if cfg!(windows) {
+        format!("Install them with winget (winget install {list}), then restart y2e.")
+    } else {
+        "Install them with your package manager, then restart y2e.".to_string()
+    }
+}
+
 /// The landing card for tools the app cannot run without. `can_install`: the
 /// app can fetch them itself, so say what that costs.
 pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
@@ -74,7 +86,7 @@ pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
             .sum();
         format!("y2e can install them for you (about {mb} MB to download, once).")
     } else {
-        "Install them with your package manager, then restart y2e.".to_string()
+        install_by_hand(tools)
     };
     Report {
         headline,
@@ -91,7 +103,10 @@ pub fn updates(list: &[y2e_core::tools::Update]) -> Report {
     let advice = if theirs.is_empty() {
         "Staying up to date avoids errors when YouTube changes.".to_string()
     } else {
-        format!("Update with your package manager: {}.", theirs.join(" et "))
+        format!(
+            "Update with your package manager: {}.",
+            theirs.join(" and ")
+        )
     };
     Report {
         headline: if names == ["yt-dlp"] {
