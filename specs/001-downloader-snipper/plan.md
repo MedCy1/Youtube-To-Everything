@@ -22,7 +22,7 @@ Implémentation d'une solution de téléchargement et d'extraction vidéo modern
 - **Target Platform**: Desktop Linux (X11 / Wayland), macOS, Windows
 - **Project Type**: Cargo Workspace Monorepo
 - **Performance Goals**: 
-  - Démarrage de l'interface < 50 ms
+  - Démarrage de l'interface < 200 ms
   - Rendu GPU fluide à 60/120 FPS
   - Inspection des métadonnées < 2 s
   - Snipper 30 s sur vidéo longue < 10 s
