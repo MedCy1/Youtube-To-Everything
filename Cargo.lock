@@ -1996,7 +1996,7 @@ dependencies = [
 [[package]]
 name = "rune"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "accesskit",
  "arboard",
@@ -2043,7 +2043,7 @@ dependencies = [
  "spellbook",
  "swash",
  "taffy",
- "tiny-skia-path 0.11.4 (git+https://github.com/anomalyco/rune)",
+ "tiny-skia-path 0.11.4 (git+https://github.com/anomalyco/rune?rev=09ab92a5)",
  "unicode-segmentation",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -2068,7 +2068,7 @@ dependencies = [
 [[package]]
 name = "rune-fx"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "bytemuck",
  "rune-motion",
@@ -2079,7 +2079,7 @@ dependencies = [
 [[package]]
 name = "rune-highlights"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "unicode-ident",
  "wasmparser",
@@ -2088,7 +2088,7 @@ dependencies = [
 [[package]]
 name = "rune-kit"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "icu_normalizer",
  "rune",
@@ -2100,12 +2100,12 @@ dependencies = [
 [[package]]
 name = "rune-motion"
 version = "0.1.0"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 
 [[package]]
 name = "rune-staging"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "wgpu",
 ]
@@ -2113,7 +2113,7 @@ dependencies = [
 [[package]]
 name = "rune-taffy"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "taffy",
 ]
@@ -2121,7 +2121,7 @@ dependencies = [
 [[package]]
 name = "rune-theme-opencode"
 version = "0.0.1"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "rune",
  "rune-kit",
@@ -2554,7 +2554,7 @@ dependencies = [
 [[package]]
 name = "tiny-skia-path"
 version = "0.11.4"
-source = "git+https://github.com/anomalyco/rune#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
+source = "git+https://github.com/anomalyco/rune?rev=09ab92a5#09ab92a5c83b906adb6fbf92637323b49e86d7ac"
 dependencies = [
  "arrayref",
  "bytemuck",
