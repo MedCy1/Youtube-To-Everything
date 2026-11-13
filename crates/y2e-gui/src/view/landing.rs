@@ -3,7 +3,7 @@
 use rune::tok::motion;
 use rune::{col, el, row, text, text_input, El, LoopSpec, Transition};
 
-use crate::report::{explain, Report};
+use crate::report::{explain, missing_tools, Report};
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -202,6 +202,8 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
                         .color(p.text_dim),
                 ),
         );
+    } else if !s.missing_tools.is_empty() {
+        stack = stack.child(error_card(&missing_tools(&s.missing_tools), p));
     } else if let Some(error) = &s.inspect_error {
         stack = stack.child(error_card(&explain(error), p));
     } else {

@@ -49,6 +49,8 @@ pub struct State {
     pub export_hover: bool,
     /// The field was filled from a link found in the clipboard.
     pub clipboard_link: bool,
+    /// External tools not found at startup (`yt-dlp`, `ffmpeg`).
+    pub missing_tools: Vec<&'static str>,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -80,6 +82,7 @@ impl Default for State {
             scrub: Scrub::default(),
             export_hover: false,
             clipboard_link: false,
+            missing_tools: y2e_core::Engine::missing_tools(),
             completed: 0,
             url_input,
             metadata: None,

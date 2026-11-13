@@ -21,6 +21,11 @@ pub struct DownloadOptions {
 pub struct Engine;
 
 impl Engine {
+    /// The external tools the engine drives that cannot be found on `PATH`.
+    pub fn missing_tools() -> Vec<&'static str> {
+        ["yt-dlp", "ffmpeg"].into_iter().filter(|tool| !on_path(tool)).collect()
+    }
+
     pub async fn fetch_metadata(url: &str) -> Result<VideoMetadata> {
         let output = Command::new("yt-dlp")
             .arg("--dump-json")
@@ -217,6 +222,11 @@ impl Engine {
     }
 }
 
+fn on_path(tool: &str) -> bool {
+    std::env::var_os("PATH")
+        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(tool).is_file()))
+}
+
 /// The last few lines of a tool's error output, which is where the cause is.
 fn tail(bytes: &[u8]) -> String {
     let text = String::from_utf8_lossy(bytes);
@@ -240,12 +250,19 @@ async fn run_quiet(mut cmd: Command) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{run_quiet, tail, Command, Y2eError};
+    use super::{on_path, run_quiet, tail, Command, Y2eError};
 
     #[test]
     fn keeps_only_the_last_lines_of_a_tool_output() {
         assert_eq!(tail(b"a\n\nb\nc\nd\ne\n"), "b\nc\nd\ne");
         assert_eq!(tail(b""), "");
+    }
+
+    #[test]
+    fn finds_tools_on_the_path_only_when_they_exist() {
+        assert!(!on_path("no-such-tool-y2e"));
+        #[cfg(unix)]
+        assert!(on_path("sh"));
     }
 
     #[tokio::test]

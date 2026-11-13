@@ -59,6 +59,20 @@ const KNOWN: &[(&[&str], &str)] = &[
     ),
 ];
 
+/// The landing card for tools the app cannot run without.
+pub fn missing_tools(tools: &[&str]) -> Report {
+    Report {
+        headline: match tools {
+            ["yt-dlp"] => "yt-dlp est introuvable.",
+            ["ffmpeg"] => "ffmpeg est introuvable.",
+            _ => "yt-dlp et ffmpeg sont introuvables.",
+        },
+        cause: Some(
+            "Installez-les avec votre gestionnaire de paquets, puis relancez y2e.".to_string(),
+        ),
+    }
+}
+
 pub fn explain(raw: &str) -> Report {
     let lower = raw.to_lowercase();
     match KNOWN
@@ -153,5 +167,17 @@ mod tests {
         );
         assert_eq!(report.headline, "Une erreur est survenue.");
         assert_eq!(report.cause.as_deref(), Some("Invalid argument"));
+    }
+
+    #[test]
+    fn names_the_missing_tools() {
+        assert_eq!(
+            missing_tools(&["ffmpeg"]).headline,
+            "ffmpeg est introuvable."
+        );
+        assert_eq!(
+            missing_tools(&["yt-dlp", "ffmpeg"]).headline,
+            "yt-dlp et ffmpeg sont introuvables."
+        );
     }
 }
