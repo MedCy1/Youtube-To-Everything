@@ -8,6 +8,7 @@ use std::f32::consts::PI;
 use y2e_core::{format_time_seconds, DownloadPreset};
 
 use crate::ambient::ambient;
+use crate::gfx;
 use crate::state::State;
 use crate::theme::{palette, Palette};
 
@@ -38,19 +39,12 @@ fn clear(color: Color) -> Color {
     color.alpha(0.0)
 }
 
-/// The backdrop of the whole window: the source artwork once it has arrived,
-/// otherwise a slow-lit aurora in the brand colours.
-/// A layer slightly larger than the window, so drifting it never shows an edge.
-fn bleed() -> El {
-    el().pin(Some(-140.0), Some(-140.0), Some(-140.0), Some(-140.0))
-}
-
 fn drift() -> Spring {
     Spring::new(0.5, 0.0)
 }
 
 /// The backdrop of the whole window: the source artwork once it has arrived,
-/// otherwise a slow-drifting aurora in the interface's own hue.
+/// otherwise a GPU mesh-gradient aurora in the interface's own hue.
 fn scene(s: &State, p: &Palette) -> El {
     let motion = ambient();
     let mut stage = fill_parent().fill(p.bg).clip_rounded(0.0);
@@ -66,41 +60,12 @@ fn scene(s: &State, p: &Palette) -> El {
         }
         _ => {
             stage = stage
-                .child(
-                    bleed()
-                        .radial_gradient(
-                            [0.78, 0.2],
-                            [900.0, 620.0],
-                            [
-                                (0.0, p.ember.alpha(0.95)),
-                                (0.5, p.accent.alpha(0.35)),
-                                (1.0, clear(p.accent)),
-                            ],
-                        )
-                        .live_offset(motion.warm.smooth(drift())),
-                )
-                .child(
-                    bleed()
-                        .radial_gradient(
-                            [0.1, 0.9],
-                            [820.0, 560.0],
-                            [
-                                (0.0, p.violet.alpha(1.0)),
-                                (0.6, p.violet.alpha(0.45)),
-                                (1.0, clear(p.violet)),
-                            ],
-                        )
-                        .live_offset(motion.cool.smooth(drift())),
-                )
-                .child(
-                    bleed()
-                        .radial_gradient(
-                            [0.5, 1.1],
-                            [900.0, 320.0],
-                            [(0.0, p.accent.alpha(0.55)), (1.0, clear(p.accent))],
-                        )
-                        .live_offset(motion.glow.smooth(drift())),
-                );
+                .child(gfx::aurora(s.accent_hue))
+                .child(fill_parent().radial_gradient(
+                    [0.5, 0.46],
+                    [560.0, 330.0],
+                    [(0.0, p.bg.alpha(0.5)), (1.0, clear(p.bg))],
+                ));
         }
     }
 
@@ -110,9 +75,10 @@ fn scene(s: &State, p: &Palette) -> El {
             (0.00, p.bg.alpha(0.62)),
             (0.16, p.bg.alpha(0.18)),
             (0.30, p.bg.alpha(0.0)),
-            (0.52, p.bg.alpha(0.30)),
-            (0.74, p.bg.alpha(0.72)),
-            (1.00, p.bg.alpha(0.94)),
+            (0.50, p.bg.alpha(0.22)),
+            (0.66, p.bg.alpha(0.52)),
+            (0.80, p.bg.alpha(0.48)),
+            (1.00, p.bg.alpha(0.30)),
         ],
     ))
 }
@@ -707,7 +673,7 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .gap(20.0)
         .radius(28.0)
         .backdrop_blur(28.0)
-        .fill(p.glass)
+        .fill(p.glass.alpha(0.5))
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
         .child(timeline(s, p, k))
@@ -749,8 +715,13 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                         .child(size_hint(s, p))
                         .child(stats)
                         .child(
-                            el().child(export_button(s, p, k))
-                                .child(completion_ring(s, p)),
+                            el().child(gfx::glow(
+                                s.accent_hue,
+                                if s.is_downloading { 0.1 } else { 0.22 },
+                                7.0,
+                            ))
+                            .child(export_button(s, p, k))
+                            .child(completion_ring(s, p)),
                         ),
                 ),
         )

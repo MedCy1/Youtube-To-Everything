@@ -16,3 +16,5 @@ tracing = "0.1"
 rune = { git = "https://github.com/anomalyco/rune", default-features = false, features = ["embedded-fonts"] }
 rune-kit = { git = "https://github.com/anomalyco/rune" }
 rune-theme-opencode = { git = "https://github.com/anomalyco/rune" }
+rune-fx = { git = "https://github.com/anomalyco/rune" }
+wgpu = { version = "30", default-features = false }
