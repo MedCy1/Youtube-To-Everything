@@ -1,24 +1,28 @@
 # Quickstart: YouTube to Everything (y2e)
 
-## Prérequis système
-- Linux / macOS / Windows
-- Rust 1.80+ (`cargo`)
-- `yt-dlp` et `ffmpeg` dans le `PATH`, ou installés par l'application au premier lancement (Linux uniquement)
+## System requirements
+
+- Linux, macOS or Windows
+- Rust 1.80 or later (`cargo`)
+- `yt-dlp` and `ffmpeg` on the `PATH`, or installed by the application on first launch (Linux only)
 - `curl`
 
-## Commandes principales
+## Main commands
 
-### 1. Compilation de la bibliothèque et des exécutables
+### 1. Build the libraries and executables
+
 ```bash
 cargo build --release
 ```
 
-### 2. Lancement de l'interface graphique native Rune
+### 2. Start the native Rune interface
+
 ```bash
 cargo run --bin y2e-gui
 ```
 
-### 3. Exécution des tests unitaires et d'intégration
+### 3. Run the unit and integration tests
+
 ```bash
 cargo test --all
 ```

@@ -1,4 +1,4 @@
-# Feature Specification: téléchargeur et découpe précise
+# Feature Specification: downloader and precise cut
 
 Feature Branch: `001-downloader-snipper`
 
@@ -6,96 +6,97 @@ Created: 2026-11-12
 
 Status: Implemented
 
-Input: User description: "Un téléchargeur vidéo réactif pour YouTube to Everything : métadonnées automatiques, découpe temporelle pour ne télécharger que les segments choisis, et des presets (qualité maximale, compression Discord < 25 Mo, audio podcast, GIF), avec une interface Rune."
+Input: A responsive video downloader for YouTube to Everything: automatic metadata, a time cut so that only the chosen segment is downloaded, and presets (maximum quality, Discord compression under 25 MB, podcast audio, GIF), with a Rune interface.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Téléchargement rapide avec détection automatique (Priority: P1)
+### User Story 1 - Fast download with automatic detection (Priority: P1)
 
-En tant qu'utilisateur, je colle une URL YouTube (ou elle est détectée directement depuis mon presse-papier) et je vois immédiatement le titre, l'auteur, la durée et la miniature de la vidéo en moins de deux secondes. Je clique sur "Télécharger" et le média est récupéré dans sa qualité maximale, avec une jauge de progression.
+As a user, I paste a YouTube URL (or it is picked up from my clipboard) and I see the title, author, duration and thumbnail within two seconds. I export, and the media is fetched in its best quality with a progress gauge.
 
-Pourquoi cette priorité : sans ce flux l'application ne sert à rien, et il doit répondre vite.
+Why this priority: without this flow the application is of no use, and it has to respond quickly.
 
-Test indépendant: Peut être testé isolément en collant une URL valide de vidéo YouTube et en vérifiant la création d'un fichier MP4 lisible dans le dossier de sortie, accompagné de sa jauge de progression en temps réel.
+Independent test: paste a valid YouTube URL, export, and check that a playable MP4 file appears in the output folder while the progress gauge advances.
 
-Scénarios d'acceptation:
+Acceptance scenarios:
 
-1. Given une application ouverte et une URL YouTube dans le presse-papier, When l'utilisateur clique sur le champ ou le bouton coller, Then les métadonnées (titre, durée, auteur, miniature) s'affichent en moins de 2 secondes.
-2. Given une vidéo sélectionnée, When l'utilisateur clique sur "Télécharger" en mode qualité maximale, Then la progression s'affiche en pourcentage continu et le fichier est disponible à la fin dans le dossier de destination.
-3. Given une URL invalide ou une vidéo privée/supprimée, When l'utilisateur tente de charger les métadonnées, Then un message d'erreur clair et non bloquant est affiché.
-
----
-
-### User Story 2 - Découpe temporelle sans téléchargement complet (Snipper) (Priority: P2)
-
-En tant qu'utilisateur souhaitant isoler un passage de 30 secondes dans une vidéo ou un live de 2 heures, je définis un point de départ (ex. 01:14:00) et un point de fin (ex. 01:14:30). Le système télécharge uniquement ce segment, pas le reste du flux, ce qui économise du temps et de la bande passante.
-
-Pourquoi cette priorité : les téléchargeurs classiques récupèrent tout le fichier. Ici on obtient un fragment sans télécharger des gigaoctets inutiles.
-
-Independent Test: Tester avec une vidéo longue (> 1 heure) en demandant un segment de 30 secondes. Vérifier que la durée du téléchargement est de quelques secondes seulement et que le fichier final dure exactement 30 secondes.
-
-Acceptance Scenarios:
-
-1. Given une vidéo inspectée, When l'utilisateur active le mode "Snipper" et ajuste les bornes temporelles de début et de fin, Then l'intervalle valide et la durée de l'extrait résultant s'affichent en clair.
-2. Given un extrait temporel configuré, When l'utilisateur lance le téléchargement, Then seul le segment temporel spécifié est extrait et écrit sur disque.
-3. Given des bornes temporelles incohérentes (début supérieur à fin, ou fin dépassant la durée de la vidéo), When l'utilisateur tente de valider, Then l'interface empêche le lancement et met en surbrillance l'incohérence.
+1. Given the application is open and a YouTube URL is on the clipboard, When the user focuses the field or pastes, Then the metadata (title, duration, author, thumbnail) appears in under 2 seconds.
+2. Given a video is loaded, When the user exports in maximum quality, Then progress is shown as a continuous percentage and the file is in the destination folder at the end.
+3. Given an invalid URL or a private or deleted video, When the user tries to load the metadata, Then a clear, non-blocking error message is shown.
 
 ---
 
-### User Story 3 - Presets de format (Priority: P3)
+### User Story 2 - Time cut without a full download (Snipper) (Priority: P2)
 
-En tant qu'utilisateur ayant des besoins variés (partager un extrait sur Discord, écouter un podcast dans les transports, ou faire un mème), je peux sélectionner en un clic un preset cible :
-- Discord / Partage : compression automatique sous le seuil strict de 25 Mo.
-- Audio Podcast : extraction du son en MP3 avec jaquette et métadonnées.
-- Mème / GIF : génération d'une boucle courte et légère.
+As a user who wants a 30-second passage from a 2-hour video or live stream, I set a start point (for example 01:14:00) and an end point (01:14:30). The system downloads only that segment, not the rest of the stream, which saves time and bandwidth.
 
-Pourquoi cette priorité : c'est la promesse "To Everything", sans obliger l'utilisateur à régler des paramètres de codec.
+Why this priority: other downloaders fetch the whole file. Here a fragment comes down without gigabytes of unused data.
 
-Independent Test: Tester chaque preset avec une vidéo test et vérifier : taille < 25 Mo pour Discord, fichier `.mp3` valide pour Audio, fichier `.gif` fonctionnel pour GIF.
+Independent test: take a video longer than one hour and request a 30-second segment. The download should take a few seconds and the final file should last exactly 30 seconds.
 
-Acceptance Scenarios:
+Acceptance scenarios:
 
-1. Given un extrait sélectionné, When l'utilisateur choisit le preset "Discord (<25 Mo)", Then le fichier généré ne dépasse jamais 24.5 Mo tout en conservant une lisibilité maximale.
-2. Given une vidéo sélectionnée, When l'utilisateur choisit "Audio Podcast", Then un fichier audio léger est extrait avec le titre et l'auteur correctement renseignés.
-3. Given un segment court sélectionné (< 10 secondes), When l'utilisateur choisit "GIF", Then un fichier image animée sans son est généré.
+1. Given an inspected video, When the user enables the cut and adjusts the start and end points, Then the valid range and the resulting duration are displayed.
+2. Given a configured cut, When the user starts the export, Then only the specified segment is extracted and written to disk.
+3. Given inconsistent bounds (start after end, or end beyond the video), When the user tries to confirm, Then the interface prevents the export and highlights the problem.
 
 ---
 
-### Edge Cases
+### User Story 3 - Format presets (Priority: P3)
 
-- Que se passe-t-il si la connexion réseau est interrompue au milieu d'un téléchargement ? Le système doit signaler l'interruption, nettoyer les fichiers partiels corrompus et permettre une reprise propre.
-- Comment le système réagit-il si l'espace disque disponible est insuffisant ? Une notification d'erreur doit prévenir l'utilisateur avant le blocage du système.
-- Que se passe-t-il sur des flux YouTube diffusés en direct (live streams) en cours ? Le système doit détecter le direct et proposer soit l'enregistrement depuis le début soit le rejet propre avec explication.
+As a user with different needs (sharing a clip on Discord, listening to a podcast on the way to work, or making a meme), I pick a target preset in one click:
+
+- Discord: automatic compression under the 25 MB limit.
+- Audio: sound extracted to MP3 with cover art and metadata.
+- GIF: a short, light loop.
+
+Why this priority: this is the "To Everything" promise, without asking the user to tune codec settings.
+
+Independent test: try each preset on a test video. Discord output is under 25 MB, the audio preset gives a valid `.mp3`, and the GIF preset gives a working `.gif`.
+
+Acceptance scenarios:
+
+1. Given a selected clip, When the user picks the Discord preset, Then the file never exceeds 24.5 MB while staying as legible as possible.
+2. Given a loaded video, When the user picks Audio, Then a light audio file is extracted with the title and author filled in.
+3. Given a short selection (under 10 seconds), When the user picks GIF, Then a silent animated image is produced.
+
+---
+
+### Edge cases
+
+- The network connection drops during a download. The system reports the interruption, removes corrupted partial files and allows a clean retry.
+- Available disk space is insufficient. An error notification warns the user before the system runs out of room.
+- The URL is a live stream in progress. The system detects it and either records from the start or declines with an explanation.
 
 ## Requirements *(mandatory)*
 
-### Functional Requirements
+### Functional requirements
 
-- FR-001: Le système DOIT extraire et présenter les métadonnées (titre, créateur, durée en secondes, URL miniature) à partir de toute URL YouTube standard ou raccourcie (`youtu.be`).
-- FR-002: Le système DOIT permettre la saisie manuelle de l'URL ainsi que la détection assistée via le presse-papier.
-- FR-003: Le système DOIT supporter le téléchargement ciblé d'intervalles temporels arbitraires `[T_start, T_end]` sans exiger le téléchargement préalable du flux complet.
-- FR-004: Le système DOIT fournir au minimum 4 modes/presets d'exportation : Qualité Maximale, Partage (< 25 Mo), Audio Seul (MP3), et Image Animée (GIF).
-- FR-005: Le système DOIT émettre un flux continu de notifications de progression indiquant le pourcentage achevé, la vitesse moyenne et l'estimation du temps restant.
-- FR-006: Le système DOIT enregistrer les fichiers finaux dans un répertoire de destination paramétrable avec un nom de fichier nettoyé et sécurisé.
-- FR-007: Le système DOIT fonctionner de manière asynchrone sans geler l'interface utilisateur pendant les transferts ou transcodages.
+- FR-001: The system MUST extract and present the metadata (title, creator, duration in seconds, thumbnail URL) from any standard or short (`youtu.be`) YouTube URL.
+- FR-002: The system MUST allow manual entry of the URL as well as detection from the clipboard.
+- FR-003: The system MUST support downloading arbitrary time ranges `[T_start, T_end]` without first downloading the full stream.
+- FR-004: The system MUST provide at least 4 export modes: maximum quality, share (< 25 MB), audio only (MP3) and animated image (GIF).
+- FR-005: The system MUST emit a continuous stream of progress notifications giving the percentage done, the average speed and the estimated time remaining.
+- FR-006: The system MUST save the final files in a configurable destination folder with a cleaned, safe file name.
+- FR-007: The system MUST run asynchronously and never freeze the user interface during transfers or transcoding.
 
-### Key Entities
+### Key entities
 
-- VideoMetadata: Représente la vidéo distante inspectée (identifiant, titre, auteur, durée totale, liste des flux/résolutions disponibles, URL de miniature).
-- DownloadTask: Représente une opération planifiée (URL cible, intervalle temporel optionnel, preset choisi, chemin de sortie).
-- ProgressUpdate: Instantané de l'avancement d'une tâche (pourcentage 0.0 à 100.0, vitesse en octets/s, temps restant en secondes, étape courante).
+- `VideoMetadata`: the inspected remote video (identifier, title, author, total duration, available streams, thumbnail URL).
+- `DownloadTask`: a planned operation (target URL, optional time range, chosen preset, output path).
+- `ProgressUpdate`: a snapshot of a task's progress (percentage from 0.0 to 100.0, speed, time remaining, current step).
 
 ## Success Criteria *(mandatory)*
 
-### Measurable Outcomes
+### Measurable outcomes
 
-- SC-001: L'affichage des métadonnées d'une vidéo YouTube s'effectue en moins de 3 secondes sur une connexion réseau standard.
-- SC-002: L'extraction d'un extrait de 30 secondes sur une vidéo de plus de 60 minutes prend moins de 10 secondes au total.
-- SC-003: 100% des fichiers produits avec le preset "Discord" pèsent strictement moins de 24.5 Mo.
-- SC-004: L'interface utilisateur reste réactive, à 60 FPS au minimum, pendant l'intégralité d'un téléchargement.
+- SC-001: Video metadata appears in under 3 seconds on a standard network connection.
+- SC-002: Extracting a 30-second clip from a video longer than 60 minutes takes under 10 seconds in total.
+- SC-003: 100% of files produced with the Discord preset weigh strictly less than 24.5 MB.
+- SC-004: The interface stays responsive at 60 FPS or better for the whole length of a download.
 
 ## Assumptions
 
-- `yt-dlp` et `ffmpeg` sont accessibles sur la machine, ou l'application les installe elle-même (Linux).
-- L'application est prioritairement conçue pour un environnement de bureau (Linux, macOS, Windows).
-- Les formats de sortie par défaut sont le conteneur MP4 pour la vidéo et MP3 pour l'audio pour une compatibilité universelle avec les lecteurs multimédias.
+- `yt-dlp` and `ffmpeg` are available on the machine, or the application installs them itself (Linux).
+- The application is designed first for desktop (Linux, macOS, Windows).
+- The default output formats are MP4 for video and MP3 for audio, for compatibility with common players.

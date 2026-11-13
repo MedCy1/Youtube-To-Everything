@@ -1,4 +1,4 @@
-# Feature Specification: Interface centrée sur l'artwork
+# Feature Specification: artwork-first interface
 
 Feature Branch: `002-artwork-first-interface`
 
@@ -6,63 +6,63 @@ Created: 2026-11-13
 
 Status: Implemented
 
-Input: Refonte de `y2e-gui` pour en faire une vitrine du framework Rune : l'image de la vidéo est le décor, l'interface flotte dessus.
+Input: Redesign of `y2e-gui`: the video's thumbnail is the backdrop and the interface floats over it.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Une interface qui prend les couleurs de la vidéo (Priority: P1)
+### User Story 1 - An interface that takes the colours of the video (Priority: P1)
 
-En tant qu'utilisateur, après avoir lu une URL, la miniature de la vidéo remplit toute la fenêtre et l'interface adopte sa teinte dominante, sans que le contraste change d'une vidéo à l'autre.
+As a user, after loading a URL, the video's thumbnail fills the whole window and the interface adopts its dominant hue, with the same contrast whatever the video.
 
-Independent Test: Charger deux vidéos de couleurs différentes et vérifier que l'accent (timeline, bouton d'export) change de teinte tout en restant lisible.
+Independent test: load two videos of different colours and check that the accent (timeline, export button) changes hue while staying legible.
 
-Acceptance Scenarios:
+Acceptance scenarios:
 
-1. Given une source chargée avec sa miniature, When l'image est décodée, Then la teinte d'accent est dérivée de la couleur dominante et la transition est animée.
-2. Given une miniature sans couleur dominante (niveaux de gris), When elle est décodée, Then la teinte de marque est conservée.
+1. Given a loaded video with its thumbnail, When the image is decoded, Then the accent hue is derived from the dominant colour and the change is animated.
+2. Given a thumbnail with no dominant colour (greyscale), When it is decoded, Then the brand hue is kept.
 
-### User Story 2 - Découper en glissant sur la timeline (Priority: P1)
+### User Story 2 - Cut by dragging on the timeline (Priority: P1)
 
-En tant qu'utilisateur, je choisis le passage à exporter en glissant sur une forme d'onde. La vidéo entière reste sélectionnée tant qu'aucune poignée n'a bougé.
+As a user, I choose the passage to export by dragging on a waveform. The whole video stays selected until a handle has moved.
 
-Acceptance Scenarios:
+Acceptance scenarios:
 
-1. Given une source chargée, When je glisse près d'une borne, Then la poignée la plus proche suit le pointeur et la durée sélectionnée s'affiche.
-2. Given une sélection, When je la ramène sur toute la vidéo ou appuie sur « Tout », Then le découpage est désactivé.
-3. Given le pointeur au-dessus de la timeline, Then une ligne et l'heure correspondante le suivent sans reconstruire la vue.
+1. Given a loaded video, When I drag near a bound, Then the closest handle follows the pointer and the selected duration is shown.
+2. Given a selection, When I bring it back to the whole video or press "All", Then the cut is disabled.
+3. Given the pointer above the timeline, Then a line and the matching time follow it without rebuilding the view.
 
-### User Story 3 - Une fin d'export lisible (Priority: P2)
+### User Story 3 - A readable end of export (Priority: P2)
 
-Acceptance Scenarios:
+Acceptance scenarios:
 
-1. Given un export terminé, Then un halo quitte le bouton, un bandeau indique le chemin du fichier et propose d'ouvrir son dossier.
-2. Given un export en échec, Then un bandeau d'erreur s'affiche sans bloquer l'interface.
+1. Given a finished export, Then a halo leaves the button, and a banner shows the file path and offers to open its folder.
+2. Given a failed export, Then an error banner appears without blocking the interface.
 
-### User Story 4 - Clavier et presse-papier (Priority: P2)
+### User Story 4 - Keyboard and clipboard (Priority: P2)
 
-Acceptance Scenarios:
+Acceptance scenarios:
 
-1. Given un lien YouTube copié dans le presse-papier, When la fenêtre passe au premier plan sur l'écran d'accueil, Then le champ est rempli et l'interface invite à appuyer sur Entrée.
-2. Given le champ du lien, When j'appuie sur Entrée, Then la source est lue.
-3. Given une source chargée, When j'appuie sur les flèches (hors saisie dans le champ), Then la fin du passage bouge de 1 s (10 s avec ↑ ↓), le début avec Maj, sans avoir à sélectionner la timeline.
-4. Given une source chargée, When je navigue au clavier, Then chaque contrôle est atteignable, nommé pour les lecteurs d'écran et affiche un anneau de focus ; Entrée lance l'export hors du champ du lien.
+1. Given a YouTube link on the clipboard, When the window comes to the front on the landing view, Then the field is filled and the interface invites the user to press Enter.
+2. Given the link field, When I press Enter, Then the video is loaded.
+3. Given a loaded video, When I press the arrow keys (outside the link field), Then the end of the passage moves by 1 s (10 s with up and down) and the start moves with Shift, without selecting the timeline first.
+4. Given a loaded video, When I navigate with the keyboard, Then every control is reachable, named for screen readers and shows a focus ring. Enter starts the export outside the link field.
 
 ## Requirements *(mandatory)*
 
-- FR-001: La couleur d'accent DOIT être dérivée de la teinte dominante de la miniature, à luminosité et chroma fixes.
-- FR-002: Les mouvements d'ambiance (dérive du décor, respiration de l'image, ligne de survol) DOIVENT passer par des valeurs animées côté rendu et ne pas reconstruire la vue.
-- FR-003: Le champ URL DOIT rester un seul élément entre l'accueil et la barre supérieure.
-- FR-004: Le chemin du fichier final DOIT provenir de `yt-dlp` (`--print after_move:filepath`), jamais d'un parsing de son journal.
-- FR-006: Seul un lien unique vers un domaine YouTube connu DOIT être repris depuis le presse-papier ; tout autre contenu est ignoré.
-- FR-007: Les erreurs des outils DOIVENT être traduites en une phrase claire ; le détail technique n'apparaît que si l'erreur n'est pas reconnue.
-- FR-005: Toute logique non graphique (extraction de teinte) DOIT être couverte par un test unitaire déterministe.
+- FR-001: The accent colour MUST be derived from the thumbnail's dominant hue, at fixed lightness and chroma.
+- FR-002: Ambient motion (backdrop drift, artwork breathing, hover line) MUST go through animated values on the render side and MUST NOT rebuild the view.
+- FR-003: The URL field MUST remain a single element between the landing view and the top bar.
+- FR-004: The final file path MUST come from `yt-dlp` (`--print after_move:filepath`), never from parsing its log.
+- FR-005: All non-graphical logic (hue extraction) MUST be covered by a deterministic unit test.
+- FR-006: Only a single link to a known YouTube domain MUST be taken from the clipboard; any other content is ignored.
+- FR-007: Tool errors MUST be translated into one clear sentence. The technical detail only appears when the error is not recognised.
 
 ## Success Criteria *(mandatory)*
 
-- SC-001: Texte et contrôles restent à au moins 14 px et lisibles sur toute miniature.
-- SC-002: Aucun traitement lourd ne s'exécute sur le thread d'interface.
+- SC-001: Text and controls stay at 14 px or larger and legible on any thumbnail.
+- SC-002: No heavy work runs on the interface thread.
 
 ## Assumptions
 
-- Le décodage de la miniature et le calcul de teinte s'exécutent hors du thread d'interface.
-- Les formats d'export et leurs règles restent ceux de la spécification 001.
+- Decoding the thumbnail and computing its hue happen off the interface thread.
+- Export formats and their rules stay those of specification 001.

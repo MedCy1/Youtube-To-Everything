@@ -1,41 +1,41 @@
-# Implementation Plan: téléchargeur et découpe précise
+# Implementation Plan: downloader and precise cut
 
-Branch: `001-downloader-snipper` | Date: 2026-11-12 | Spec: [specs/001-downloader-snipper/spec.md](spec.md)
+Branch: `001-downloader-snipper` | Date: 2026-11-12 | Spec: [spec.md](spec.md)
 
-Input: Spécification fonctionnelle issue de `/specs/001-downloader-snipper/spec.md`
+Input: functional specification from [spec.md](spec.md)
 
 ## Summary
 
-Un moteur asynchrone en Rust (`y2e-core`) pilote `yt-dlp` et `ffmpeg`, et une interface graphique native GPU est construite avec le framework Rune (`y2e-gui`). L'application lit les métadonnées, ne télécharge que le segment demandé (Snipper) et propose quatre presets : qualité maximale, Discord < 25 Mo, audio MP3 et GIF.
+An asynchronous Rust engine (`y2e-core`) drives `yt-dlp` and `ffmpeg`, and a native GPU interface is built with the Rune framework (`y2e-gui`). The application reads the metadata, downloads only the requested segment (Snipper) and offers four presets: maximum quality, Discord under 25 MB, MP3 audio and GIF.
 
-## Technical Context
+## Technical context
 
-- Language/Version: Rust 2021/2024 (rustc 1.85+)
-- Primary Dependencies: 
-  - `tokio` (runtime asynchrone pour sous-processus)
-  - `serde`, `serde_json` (désérialisation des métadonnées yt-dlp)
-  - `thiserror` (gestion d'erreurs typées)
-  - `tokio::sync` et `std::sync::mpsc` (canaux entre le moteur et l'interface)
-  - `rune`, `rune-kit`, `rune-fx`, `rune-theme-opencode` (framework UI natif GPU)
-- External CLI Tools: `yt-dlp`, `ffmpeg`
+- Language: Rust 2021
+- Main dependencies:
+  - `tokio` (async runtime for child processes)
+  - `serde`, `serde_json` (deserialising the yt-dlp metadata)
+  - `thiserror` (typed errors)
+  - `tokio::sync` and `std::sync::mpsc` (channels between the engine and the UI)
+  - `rune`, `rune-kit`, `rune-fx`, `rune-theme-opencode` (native GPU UI framework)
+- External tools: `yt-dlp`, `ffmpeg`
 - Testing: `cargo test --all`
-- Target Platform: Desktop Linux (X11 / Wayland), macOS, Windows
-- Project Type: Cargo Workspace Monorepo
-- Performance Goals: 
-  - Démarrage de l'interface < 200 ms
-  - Rendu GPU à 60 FPS minimum
-  - Inspection des métadonnées < 2 s
-  - Snipper 30 s sur vidéo longue < 10 s
+- Target platform: desktop Linux (X11 and Wayland), macOS, Windows
+- Project type: Cargo workspace
+- Performance goals:
+  - Interface starts in under 200 ms
+  - GPU rendering at 60 FPS or better
+  - Metadata read in under 2 s
+  - 30 s clip from a long video in under 10 s
 
-## Constitution Check
+## Constitution check
 
-- [x] I. Architecture Découplée : `y2e-core` est une bibliothèque indépendante sans dépendance graphique.
-- [x] II. Performance GPU & Fluidité : Rune exploite le GPU ; tous les transferts tournent hors du thread UI.
-- [x] III. Respect des Outils Amonts : Décodage YouTube via `yt-dlp`, coupe via `--download-sections`.
-- [x] IV. Extensibilité Multi-Frontend : Événements `CoreEvent` consommables par Rune ou OpenTUI.
-- [x] V. Code Propre & Discrétion Absolue : Zéro watermark/mention IA dans les fichiers du repo.
+- [x] I. Decoupled architecture: `y2e-core` is an independent library with no graphical dependency.
+- [x] II. GPU performance and fluidity: Rune uses the GPU, and every transfer runs off the UI thread.
+- [x] III. Respect for upstream tools: YouTube decoding goes through `yt-dlp`, cutting through `--download-sections`.
+- [x] IV. Multi-frontend extensibility: `CoreEvent` can be consumed by Rune or by a terminal UI.
+- [x] V. Clean code: no watermark or tool attribution in the repository files.
 
-## Project Structure
+## Project structure
 
 ### Documentation (this feature)
 
@@ -54,13 +54,13 @@ specs/001-downloader-snipper/
 ```text
 Cargo.toml                      # Workspace root
 crates/
-├── y2e-core/                   # Shared Core Library
+├── y2e-core/                   # Shared engine library
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs
-│       ├── error.rs            # Typed error handling
-│       ├── metadata.rs         # VideoMetadata & JSON deserialization
-│       ├── progress.rs         # Parsing yt-dlp progress streams
+│       ├── error.rs            # Typed errors
+│       ├── metadata.rs         # VideoMetadata and JSON deserialisation
+│       ├── progress.rs         # Parsing yt-dlp progress lines
 │       ├── presets.rs          # Presets (Discord, MP3, GIF) and size estimates
 │       ├── events.rs           # CoreEvent, sent from the engine to the UI
 │       ├── tools.rs            # Finding, installing and updating yt-dlp and ffmpeg
@@ -72,7 +72,7 @@ crates/
         ├── state.rs            # Application state
         ├── view/               # Landing, studio, timeline and dock views
         ├── gfx.rs              # GPU effects (aurora, export glow)
-        ├── theme.rs            # Design tokens & color palettes
+        ├── theme.rs            # Design tokens and colour palettes
         ├── tint.rs, artwork.rs # Hue extraction from the thumbnail
         └── link.rs, report.rs  # Clipboard link detection, readable errors
 ```

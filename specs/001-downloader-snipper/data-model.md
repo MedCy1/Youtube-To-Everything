@@ -1,15 +1,17 @@
-# Data Model: YouTube to Everything Engine
+# Data Model: YouTube to Everything engine
 
 ## Entities and value objects
 
 ### 1. `VideoMetadata`
-Ce que `yt-dlp --dump-json` renvoie d'une vidéo inspectée. Seuls l'identifiant et le titre sont toujours présents.
+
+What `yt-dlp --dump-json` returns for an inspected video. Only the identifier and the title are always present.
+
 ```rust
 pub struct VideoMetadata {
     pub id: String,
     pub title: String,
     pub uploader: Option<String>,
-    pub duration: Option<f64>,       // secondes
+    pub duration: Option<f64>,       // seconds
     pub thumbnail: Option<String>,   // URL
     pub chapters: Option<Vec<VideoChapter>>,
     pub webpage_url: Option<String>,
@@ -23,7 +25,9 @@ pub struct VideoChapter {
 ```
 
 ### 2. `TimeRange` (Snipper)
-Intervalle de coupe. `TimeRange::new` refuse un début supérieur ou égal à la fin.
+
+A cut interval. `TimeRange::new` rejects a start greater than or equal to the end.
+
 ```rust
 pub struct TimeRange {
     pub start_seconds: u64,
@@ -32,7 +36,9 @@ pub struct TimeRange {
 ```
 
 ### 3. `DownloadPreset`
-Mode de transformation choisi pour l'export.
+
+The transformation chosen for the export.
+
 ```rust
 pub enum DownloadPreset {
     MaxQuality,
@@ -41,26 +47,30 @@ pub enum DownloadPreset {
     GifMeme,
 }
 ```
-`estimated_size_mb(seconds)` donne une taille approximative du fichier produit, ou `None` quand elle dépend trop de la source (qualité maximale).
 
-### 4. `ProgressUpdate` et `CoreEvent`
-Événements envoyés du moteur asynchrone vers l'interface.
+`estimated_size_mb(seconds)` gives an approximate size for the resulting file, or `None` when it depends too much on the source (maximum quality).
+
+### 4. `ProgressUpdate` and `CoreEvent`
+
+Events sent from the asynchronous engine to the interface.
+
 ```rust
 pub struct ProgressUpdate {
-    pub percent: f32,        // 0.0 à 100.0
-    pub speed: String,       // ex. "12.5MiB/s"
-    pub eta: String,         // ex. "00:15"
-    pub raw: String,         // la ligne d'origine de yt-dlp
+    pub percent: f32,        // 0.0 to 100.0
+    pub speed: String,       // for example "12.5MiB/s"
+    pub eta: String,         // for example "00:15"
+    pub raw: String,         // the original yt-dlp line
 }
 
 pub enum CoreEvent {
     DownloadStarted,
     Progress(ProgressUpdate),
-    StatusChanged(String),   // ex. "Compression Discord (< 25 Mo)…"
+    StatusChanged(String),   // for example "Compressing for Discord (< 25 MB)…"
     Finished { output_path: std::path::PathBuf },
     Error(String),
 }
 ```
 
 ### 5. `tools`
-Module qui trouve `yt-dlp` et `ffmpeg` (le `PATH` d'abord, puis la copie de l'application dans `~/.local/share/y2e/bin`), les installe en vérifiant leur somme SHA-256 et signale les mises à jour disponibles.
+
+The module that finds `yt-dlp` and `ffmpeg` (the `PATH` first, then the application's own copy in `~/.local/share/y2e/bin`), installs them after checking their SHA-256 sum, and reports available updates.
