@@ -2,7 +2,8 @@
 
 pub struct Report {
     pub headline: &'static str,
-    pub cause: String,
+    /// Technical detail, only when the headline could not say what went wrong.
+    pub cause: Option<String>,
 }
 
 const MAX_CAUSE: usize = 140;
@@ -16,6 +17,10 @@ const KNOWN: &[(&[&str], &str)] = &[
             "is not available",
         ],
         "Cette vidéo n’est pas disponible.",
+    ),
+    (
+        &["incomplete youtube id", "looks truncated"],
+        "Ce lien semble incomplet. Copiez-le en entier.",
     ),
     (
         &["unsupported url", "is not a valid url"],
@@ -56,13 +61,18 @@ const KNOWN: &[(&[&str], &str)] = &[
 
 pub fn explain(raw: &str) -> Report {
     let lower = raw.to_lowercase();
-    let headline = KNOWN
+    match KNOWN
         .iter()
         .find(|(needles, _)| needles.iter().any(|needle| lower.contains(needle)))
-        .map_or("Une erreur est survenue.", |(_, headline)| headline);
-    Report {
-        headline,
-        cause: short_cause(raw),
+    {
+        Some((_, headline)) => Report {
+            headline,
+            cause: None,
+        },
+        None => Report {
+            headline: "Une erreur est survenue.",
+            cause: Some(short_cause(raw)),
+        },
     }
 }
 
@@ -94,10 +104,10 @@ mod tests {
     const UNAVAILABLE: &str = "yt-dlp --dump-json https://www.youtube.com/watch?v=zzz exited with code Some(1), stderr: ERROR: [youtube] zzz: Video unavailable";
 
     #[test]
-    fn names_the_problem_and_keeps_only_the_cause() {
+    fn names_a_known_problem_without_the_technical_noise() {
         let report = explain(UNAVAILABLE);
         assert_eq!(report.headline, "Cette vidéo n’est pas disponible.");
-        assert_eq!(report.cause, "Video unavailable");
+        assert_eq!(report.cause, None);
     }
 
     #[test]
@@ -107,9 +117,18 @@ mod tests {
     }
 
     #[test]
+    fn recognises_a_truncated_link() {
+        let report = explain("ERROR: Incomplete YouTube ID -zzzzzz. URL looks truncated.");
+        assert_eq!(
+            report.headline,
+            "Ce lien semble incomplet. Copiez-le en entier."
+        );
+    }
+
+    #[test]
     fn falls_back_to_a_generic_headline_and_bounds_the_cause() {
         let report = explain(&format!("ERROR: {}", "x".repeat(400)));
         assert_eq!(report.headline, "Une erreur est survenue.");
-        assert!(report.cause.chars().count() <= MAX_CAUSE + 1);
+        assert!(report.cause.unwrap().chars().count() <= MAX_CAUSE + 1);
     }
 }

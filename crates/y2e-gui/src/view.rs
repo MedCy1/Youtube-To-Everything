@@ -178,6 +178,21 @@ fn logo(p: &Palette, size: f32) -> El {
 
 /// The landing view's answer to a source that could not be read.
 fn error_card(report: &Report, p: &Palette) -> El {
+    let mut details = col().grow(1.0).min_w(0.0).gap(2.0).child(
+        text(report.headline)
+            .font(face(17.0, 600))
+            .color(p.text)
+            .wrap(),
+    );
+    if let Some(cause) = &report.cause {
+        details = details.child(
+            text(cause.clone())
+                .font(face(13.0, 400))
+                .color(p.text_faint)
+                .wrap()
+                .max_lines(2),
+        );
+    }
     row()
         .key("hero-error")
         .transition(Transition::offset(0.0, 16.0).combined(Transition::opacity()))
@@ -198,18 +213,7 @@ fn error_card(report: &Report, p: &Palette) -> El {
                 .center()
                 .child(text("!").font(face(19.0, 700)).color(p.danger)),
         )
-        .child(
-            col()
-                .grow(1.0)
-                .gap(2.0)
-                .child(text(report.headline).font(face(17.0, 600)).color(p.text))
-                .child(
-                    text(report.cause.clone())
-                        .font(face(13.0, 400))
-                        .color(p.text_faint)
-                        .truncate_fade(),
-                ),
-        )
+        .child(details)
 }
 
 fn hero(s: &State, p: &Palette) -> El {
@@ -629,8 +633,8 @@ fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
     }
 }
 
-fn notice(key: &str, color: Color, label: &str, detail: String, p: &Palette) -> El {
-    row()
+fn notice(key: &str, color: Color, label: &str, detail: Option<String>, p: &Palette) -> El {
+    let mut banner = row()
         .key(key)
         .transition(Transition::offset(0.0, 24.0).combined(Transition::opacity()))
         .w_full()
@@ -643,13 +647,19 @@ fn notice(key: &str, color: Color, label: &str, detail: String, p: &Palette) -> 
         .fill(p.glass)
         .border(1.0, color.alpha(0.55))
         .child(el().size(8.0, 8.0).radius(4.0).fill(color))
-        .child(text(label.to_string()).font(face(15.0, 600)).color(color))
-        .child(
+        .child(text(label.to_string()).font(face(15.0, 600)).color(color));
+    banner = match detail {
+        Some(detail) => banner.child(
             text(detail)
                 .font(face(14.0, 400))
                 .color(p.text_dim)
-                .truncate_fade(),
-        )
+                .truncate_fade()
+                .grow(1.0)
+                .min_w(0.0),
+        ),
+        None => banner.child(spacer()),
+    };
+    banner
 }
 
 /// Human size: megabytes below a gigabyte, gigabytes above.
@@ -803,7 +813,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                     "notice-done",
                     p.success,
                     "Export terminé",
-                    path.display().to_string(),
+                    Some(path.display().to_string()),
                     &p,
                 )
                 .child(
