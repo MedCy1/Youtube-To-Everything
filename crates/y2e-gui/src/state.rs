@@ -279,6 +279,13 @@ impl State {
     }
 
     pub fn on_inspect_error(&mut self, err: String) {
+        // A failed lookup leaves no source on screen: the previous one would be
+        // shown again without its artwork.
+        self.metadata = None;
+        self.thumbnail = None;
+        self.accent_hue = BRAND_HUE;
+        self.art_lightness = 0.3;
+        self.reset_range();
         self.is_loading_metadata = false;
         self.inspect_error = Some(err);
     }

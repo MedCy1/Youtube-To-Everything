@@ -1,15 +1,14 @@
 use rune::tok::motion;
 use rune::{
-    col, el, row, spacer, text, text_input, Beat, Color, Cx, El, Sequence, Spring, SurfaceFit,
+    col, el, row, spacer, text, text_input, Beat, Color, Cx, El, LoopSpec, Sequence, SurfaceFit,
     TextStyle, Transition,
 };
 use rune_kit::{Kit, RollingText};
 use std::f32::consts::PI;
 use y2e_core::{format_time_seconds, DownloadPreset};
 
-use crate::ambient::ambient;
 use crate::gfx;
-use crate::report::explain;
+use crate::report::{explain, Report};
 use crate::state::State;
 use crate::theme::{palette, Palette};
 
@@ -40,14 +39,9 @@ fn clear(color: Color) -> Color {
     color.alpha(0.0)
 }
 
-fn drift() -> Spring {
-    Spring::new(0.5, 0.0)
-}
-
 /// The backdrop of the whole window: the source artwork once it has arrived,
 /// otherwise a GPU mesh-gradient aurora in the interface's own hue.
 fn scene(s: &State, p: &Palette) -> El {
-    let motion = ambient();
     let mut stage = fill_parent().fill(p.bg).clip_rounded(0.0);
 
     match (&s.thumbnail, &s.metadata) {
@@ -55,7 +49,6 @@ fn scene(s: &State, p: &Palette) -> El {
             stage = stage.child(
                 fill_parent()
                     .pixels_fit(art, SurfaceFit::Fill)
-                    .live_scale(motion.zoom.smooth(drift()))
                     .transition(Transition::opacity()),
             );
         }
@@ -110,6 +103,7 @@ fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Palette) -> E
 
 /// The single URL field, wide in the empty state, a compact pill once a source is loaded.
 fn url_pill(s: &State, p: &Palette, big: bool) -> El {
+    let invalid = s.inspect_error.is_some() && !s.is_loading_metadata;
     let input = text_input(&s.url_input, face(if big { 17.0 } else { 15.0 }, 500))
         .key("url_input")
         .grow(1.0)
@@ -153,7 +147,17 @@ fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .radius(height / 2.0)
         .backdrop_blur(18.0)
         .fill(p.glass.alpha(0.5))
-        .border(1.0, p.glass_line)
+        .border(
+            1.0,
+            if invalid {
+                p.danger.alpha(0.8)
+            } else {
+                p.glass_line
+            },
+        )
+        .motion(motion::SNAPPY)
+        // The whole pill is a click target for the field, not just its text.
+        .on_press_tx(|_: &mut State, tx| tx.focus("url_input", false))
         .child(input)
         .child(action)
 }
@@ -170,6 +174,42 @@ fn logo(p: &Palette, size: f32) -> El {
                 .child(text("y").font(face(size * 0.62, 800)).color(p.on_accent)),
         )
         .child(text("y2e").font(display(size * 0.72, -0.4)).color(p.text))
+}
+
+/// The landing view's answer to a source that could not be read.
+fn error_card(report: &Report, p: &Palette) -> El {
+    row()
+        .key("hero-error")
+        .transition(Transition::offset(0.0, 16.0).combined(Transition::opacity()))
+        .w_full()
+        .max_w(680.0)
+        .px(20.0)
+        .py(14.0)
+        .gap(16.0)
+        .center_y()
+        .radius(20.0)
+        .backdrop_blur(18.0)
+        .fill(p.glass.alpha(0.6))
+        .border(1.0, p.danger.alpha(0.5))
+        .child(
+            el().size(36.0, 36.0)
+                .radius(18.0)
+                .fill(p.danger.alpha(0.18))
+                .center()
+                .child(text("!").font(face(19.0, 700)).color(p.danger)),
+        )
+        .child(
+            col()
+                .grow(1.0)
+                .gap(2.0)
+                .child(text(report.headline).font(face(17.0, 600)).color(p.text))
+                .child(
+                    text(report.cause.clone())
+                        .font(face(13.0, 400))
+                        .color(p.text_faint)
+                        .truncate_fade(),
+                ),
+        )
 }
 
 fn hero(s: &State, p: &Palette) -> El {
@@ -197,22 +237,25 @@ fn hero(s: &State, p: &Palette) -> El {
     if s.is_loading_metadata {
         stack = stack.child(
             row()
-                .gap(12.0)
+                .key("hero-loading")
+                .transition(Transition::opacity())
+                .gap(14.0)
                 .center_y()
                 .child(
+                    // Indeterminate: a segment sweeps along the track until the source arrives.
                     row()
-                        .w(120.0)
-                        .h(3.0)
+                        .w(150.0)
+                        .h(4.0)
                         .radius(2.0)
+                        .clip_rounded(2.0)
                         .fill(p.chip)
                         .child(
-                            el().grow(2.0)
+                            el().w(54.0)
                                 .h_full()
                                 .radius(2.0)
                                 .fill(p.accent)
-                                .motion(motion::SNAPPY),
-                        )
-                        .child(el().grow(3.0)),
+                                .looping(LoopSpec::slide(1.25, [-1.0, 0.0], [3.0, 0.0])),
+                        ),
                 )
                 .child(
                     text("Lecture de la source")
@@ -221,19 +264,7 @@ fn hero(s: &State, p: &Palette) -> El {
                 ),
         );
     } else if let Some(error) = &s.inspect_error {
-        let report = explain(error);
-        stack = stack.child(
-            col()
-                .center()
-                .gap(4.0)
-                .child(text(report.headline).font(face(17.0, 600)).color(p.danger))
-                .child(
-                    text(report.cause)
-                        .font(face(13.0, 400))
-                        .color(p.text_faint)
-                        .truncate_fade(),
-                ),
-        );
+        stack = stack.child(error_card(&explain(error), p));
     } else {
         stack = stack.child(
             text("MP4 · MP3 · Discord · GIF — et seulement le passage qui vous intéresse.")

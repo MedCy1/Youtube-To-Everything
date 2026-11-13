@@ -1,4 +1,3 @@
-mod ambient;
 mod artwork;
 mod gfx;
 mod report;
@@ -30,7 +29,6 @@ fn main() {
         )
     };
 
-    ambient::start();
     let app = App::new(spec).compositor(gfx::StudioGfx::default());
     let app_handle = Arc::new(app.handle());
     let handle_for_worker = app_handle.clone();
