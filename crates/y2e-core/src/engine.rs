@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 
@@ -110,6 +110,14 @@ impl Engine {
         let stdout = child.stdout.take().expect("Failed to open child stdout");
         let mut reader = BufReader::new(stdout).lines();
 
+        // Drain stderr so a chatty yt-dlp can never fill the pipe, and keep it for errors.
+        let mut stderr = child.stderr.take().expect("Failed to open child stderr");
+        let stderr_text = tokio::spawn(async move {
+            let mut text = Vec::new();
+            let _ = stderr.read_to_end(&mut text).await;
+            text
+        });
+
         let mut last_destination: Option<PathBuf> = None;
 
         while let Ok(Some(line)) = reader.next_line().await {
@@ -135,12 +143,17 @@ impl Engine {
 
         let status = child.wait().await?;
         if !status.success() {
-            let error_msg = format!("yt-dlp exited with status {:?}", status.code());
+            let detail = stderr_text.await.unwrap_or_default();
+            let error_msg = format!(
+                "yt-dlp exited with status {:?}, stderr: {}",
+                status.code(),
+                tail(&detail)
+            );
             let _ = event_tx.send(CoreEvent::Error(error_msg.clone())).await;
             return Err(Y2eError::ProcessFailed {
                 command: "yt-dlp".to_string(),
                 code: status.code(),
-                stderr: error_msg,
+                stderr: tail(&detail),
             });
         }
 
@@ -173,29 +186,18 @@ impl Engine {
         let duration = time_range.map(|r| r.duration_seconds()).unwrap_or(60);
         let video_bitrate = DownloadPreset::calculate_discord_video_bitrate_kbps(duration);
 
-        let status = Command::new("ffmpeg")
-            .arg("-y")
-            .arg("-i")
+        let mut cmd = Command::new("ffmpeg");
+        cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
             .arg(input_path)
-            .arg("-c:v")
-            .arg("libx264")
-            .arg("-b:v")
-            .arg(format!("{}k", video_bitrate))
+            .args(["-c:v", "libx264", "-b:v"])
+            .arg(format!("{video_bitrate}k"))
             .arg("-maxrate")
-            .arg(format!("{}k", video_bitrate))
+            .arg(format!("{video_bitrate}k"))
             .arg("-bufsize")
             .arg(format!("{}k", video_bitrate * 2))
-            .arg("-c:a")
-            .arg("aac")
-            .arg("-b:a")
-            .arg("96k")
-            .arg(&output_path)
-            .status()
-            .await?;
-
-        if !status.success() {
-            return Ok(input_path.to_path_buf());
-        }
+            .args(["-c:a", "aac", "-b:a", "96k"])
+            .arg(&output_path);
+        run_quiet(cmd).await?;
 
         Ok(output_path)
     }
@@ -204,20 +206,56 @@ impl Engine {
         let output_path = input_path.with_extension("gif");
 
         let filter = "fps=15,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
-        let status = Command::new("ffmpeg")
-            .arg("-y")
-            .arg("-i")
+        let mut cmd = Command::new("ffmpeg");
+        cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
             .arg(input_path)
-            .arg("-vf")
-            .arg(filter)
-            .arg(&output_path)
-            .status()
-            .await?;
-
-        if !status.success() {
-            return Ok(input_path.to_path_buf());
-        }
+            .args(["-vf", filter])
+            .arg(&output_path);
+        run_quiet(cmd).await?;
 
         Ok(output_path)
+    }
+}
+
+/// The last few lines of a tool's error output, which is where the cause is.
+fn tail(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+    lines[lines.len().saturating_sub(4)..].join("\n")
+}
+
+/// Runs ffmpeg without letting it write into our terminal; a failure carries
+/// its own message instead of passing the source file off as the result.
+async fn run_quiet(mut cmd: Command) -> Result<()> {
+    let out = cmd.stdin(Stdio::null()).output().await?;
+    if out.status.success() {
+        return Ok(());
+    }
+    Err(Y2eError::ProcessFailed {
+        command: "ffmpeg".to_string(),
+        code: out.status.code(),
+        stderr: tail(&out.stderr),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{run_quiet, tail, Command, Y2eError};
+
+    #[test]
+    fn keeps_only_the_last_lines_of_a_tool_output() {
+        assert_eq!(tail(b"a\n\nb\nc\nd\ne\n"), "b\nc\nd\ne");
+        assert_eq!(tail(b""), "");
+    }
+
+    #[tokio::test]
+    async fn a_failing_ffmpeg_reports_its_own_message() {
+        let mut cmd = Command::new("ffmpeg");
+        cmd.args(["-hide_banner", "-loglevel", "error", "-i", "/nonexistent/in.mp4", "/tmp/out.mp4"]);
+        match run_quiet(cmd).await {
+            Err(Y2eError::ProcessFailed { stderr, .. }) => assert!(stderr.contains("nonexistent")),
+            Err(Y2eError::Io(_)) => {} // ffmpeg is not installed here
+            other => panic!("expected a failure, got {other:?}"),
+        }
     }
 }

@@ -79,6 +79,13 @@ pub fn explain(raw: &str) -> Report {
 /// The part of the message after `ERROR:`, without the extractor tag and the
 /// video id yt-dlp puts in front of it, cut to one readable line.
 fn short_cause(raw: &str) -> String {
+    // yt-dlp states its cause on the line after `ERROR:`; ffmpeg's is the last line of its output.
+    let from_ffmpeg = !raw.contains("ERROR:") && raw.contains("stderr:");
+    let raw = if from_ffmpeg {
+        raw.rsplit("stderr:").next().unwrap_or(raw).trim()
+    } else {
+        raw
+    };
     let mut cause = raw.rsplit("ERROR:").next().unwrap_or(raw).trim();
     if let Some(rest) = cause.strip_prefix('[').and_then(|c| c.split_once(']')) {
         cause = rest.1.trim();
@@ -88,7 +95,10 @@ fn short_cause(raw: &str) -> String {
             cause = rest.trim();
         }
     }
-    let line = cause.lines().next().unwrap_or("").trim();
+    let mut lines = cause.lines().filter(|l| !l.trim().is_empty());
+    let line = if from_ffmpeg { lines.next_back() } else { lines.next() }
+        .unwrap_or("")
+        .trim();
     if line.chars().count() > MAX_CAUSE {
         let cut: String = line.chars().take(MAX_CAUSE).collect();
         format!("{}…", cut.trim_end())
@@ -130,5 +140,14 @@ mod tests {
         let report = explain(&format!("ERROR: {}", "x".repeat(400)));
         assert_eq!(report.headline, "Une erreur est survenue.");
         assert!(report.cause.unwrap().chars().count() <= MAX_CAUSE + 1);
+    }
+
+    #[test]
+    fn shows_the_last_line_of_an_ffmpeg_failure() {
+        let report = explain(
+            "Process execution error: ffmpeg exited with code Some(1), stderr: Stream map error\nInvalid argument",
+        );
+        assert_eq!(report.headline, "Une erreur est survenue.");
+        assert_eq!(report.cause.as_deref(), Some("Invalid argument"));
     }
 }
