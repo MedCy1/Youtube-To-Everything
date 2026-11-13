@@ -1,6 +1,7 @@
 mod ambient;
 mod artwork;
 mod gfx;
+mod report;
 mod state;
 mod theme;
 mod tint;

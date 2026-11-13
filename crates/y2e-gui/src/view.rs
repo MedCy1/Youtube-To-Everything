@@ -9,6 +9,7 @@ use y2e_core::{format_time_seconds, DownloadPreset};
 
 use crate::ambient::ambient;
 use crate::gfx;
+use crate::report::explain;
 use crate::state::State;
 use crate::theme::{palette, Palette};
 
@@ -114,7 +115,12 @@ fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .grow(1.0)
         .single_line()
         .placeholder("Collez un lien YouTube", p.text_faint)
-        .on_edit(|s: &mut State| &mut s.url_input);
+        .on_edit(|s: &mut State| &mut s.url_input)
+        .on_submit(|s: &mut State, _| {
+            if !s.is_loading_metadata {
+                s.trigger_inspect();
+            }
+        });
 
     let action = solid_button(
         if s.is_loading_metadata {
@@ -215,7 +221,19 @@ fn hero(s: &State, p: &Palette) -> El {
                 ),
         );
     } else if let Some(error) = &s.inspect_error {
-        stack = stack.child(text(error.clone()).font(face(15.0, 500)).color(p.danger));
+        let report = explain(error);
+        stack = stack.child(
+            col()
+                .center()
+                .gap(4.0)
+                .child(text(report.headline).font(face(17.0, 600)).color(p.danger))
+                .child(
+                    text(report.cause)
+                        .font(face(13.0, 400))
+                        .color(p.text_faint)
+                        .truncate_fade(),
+                ),
+        );
     } else {
         stack = stack.child(
             text("MP4 · MP3 · Discord · GIF — et seulement le passage qui vous intéresse.")
@@ -774,7 +792,14 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
             );
         }
         if let Some(error) = &s.download_error {
-            layout = layout.child(notice("notice-error", p.danger, "Échec", error.clone(), &p));
+            let report = explain(error);
+            layout = layout.child(notice(
+                "notice-error",
+                p.danger,
+                report.headline,
+                report.cause,
+                &p,
+            ));
         }
         layout = layout.child(dock(s, &p, &k));
     }
