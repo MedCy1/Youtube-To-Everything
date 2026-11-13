@@ -22,6 +22,8 @@ fn main() {
     let spec = AppSpec {
         fonts: rune_theme_opencode::FONTS,
         families: rune_theme_opencode::FAMILIES,
+        // The cut answers the arrow keys whenever no field is being edited.
+        on_key: Some(|s: &mut State, key, _| s.timeline_key(key)),
         ..AppSpec::new(
             "YouTube to Everything // Studio",
             (1140.0, 740.0),
@@ -59,6 +61,8 @@ fn main() {
                                         };
                                         handle.update(move |s, tx| {
                                             tx.animated();
+                                            // Leave the URL field so the arrow keys reach the timeline.
+                                            tx.blur();
                                             s.on_inspect_success(metadata, artwork);
                                         });
                                     }

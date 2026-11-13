@@ -44,7 +44,8 @@ En tant qu'utilisateur, je choisis le passage à exporter en glissant sur une fo
 
 1. **Given** un lien YouTube copié dans le presse-papier, **When** la fenêtre passe au premier plan sur l'écran d'accueil, **Then** le champ est rempli et l'interface invite à appuyer sur Entrée.
 2. **Given** le champ du lien, **When** j'appuie sur Entrée, **Then** la source est lue.
-3. **Given** une source chargée, **When** je navigue au clavier, **Then** chaque contrôle est atteignable, nommé pour les lecteurs d'écran et affiche un anneau de focus ; Entrée lance l'export hors du champ du lien.
+3. **Given** une source chargée, **When** j'appuie sur les flèches (hors saisie dans le champ), **Then** la fin du passage bouge de 1 s (10 s avec ↑ ↓), le début avec Maj, sans avoir à sélectionner la timeline.
+4. **Given** une source chargée, **When** je navigue au clavier, **Then** chaque contrôle est atteignable, nommé pour les lecteurs d'écran et affiche un anneau de focus ; Entrée lance l'export hors du champ du lien.
 
 ## Requirements *(mandatory)*
 

@@ -717,14 +717,14 @@ fn size_hint(s: &State, p: &Palette) -> El {
         .color(p.text_dim)
 }
 
-fn gif_advice(s: &State, p: &Palette) -> El {
+fn gif_advice(s: &State, p: &Palette) -> Option<El> {
     let seconds = s.selected_seconds();
     let heavy = s.preset == DownloadPreset::GifMeme
         && s.preset
             .estimated_size_mb(seconds)
             .is_some_and(|mb| mb > 40.0);
     if !heavy {
-        return el();
+        return None;
     }
     let chip = |label: &'static str| {
         el().h(30.0)
@@ -739,30 +739,33 @@ fn gif_advice(s: &State, p: &Palette) -> El {
             .center()
             .child(text(label).font(face(13.0, 600)).color(p.text))
     };
-    row()
-        .key("gif-advice")
-        .transition(Transition::offset(0.0, 12.0).combined(Transition::opacity()))
-        .w_full()
-        .px(16.0)
-        .py(10.0)
-        .gap(10.0)
-        .center_y()
-        .radius(14.0)
-        .fill(p.accent_deep.alpha(0.55))
-        .child(
-            text(format!(
-                "Un GIF de {} pèsera lourd. Un extrait court se partage mieux.",
-                format_time_seconds(seconds)
-            ))
-            .font(face(14.0, 500))
-            .color(p.text)
-            .truncate_fade()
-            .grow(1.0),
-        )
-        .child(chip("Garder 8 s").on_press(|s: &mut State| s.keep_short_clip(8)))
-        .child(
-            chip("Passer en MP4").on_press(|s: &mut State| s.preset = DownloadPreset::MaxQuality),
-        )
+    Some(
+        row()
+            .key("gif-advice")
+            .transition(Transition::offset(0.0, 12.0).combined(Transition::opacity()))
+            .w_full()
+            .px(16.0)
+            .py(10.0)
+            .gap(10.0)
+            .center_y()
+            .radius(14.0)
+            .fill(p.accent_deep.alpha(0.55))
+            .child(
+                text(format!(
+                    "Un GIF de {} pèsera lourd. Un extrait court se partage mieux.",
+                    format_time_seconds(seconds)
+                ))
+                .font(face(14.0, 500))
+                .color(p.text)
+                .truncate_fade()
+                .grow(1.0),
+            )
+            .child(chip("Garder 8 s").on_press(|s: &mut State| s.keep_short_clip(8)))
+            .child(
+                chip("Passer en MP4")
+                    .on_press(|s: &mut State| s.preset = DownloadPreset::MaxQuality),
+            ),
+    )
 }
 
 fn dock(s: &State, p: &Palette, k: &Kit) -> El {
@@ -778,7 +781,7 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
         .child(timeline(s, p, k))
-        .child(gif_advice(s, p))
+        .children(gif_advice(s, p))
         .child(
             row()
                 .w_full()

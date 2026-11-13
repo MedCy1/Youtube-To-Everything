@@ -1,6 +1,6 @@
 use crate::artwork::Artwork;
 use crossbeam_channel::Sender;
-use rune::{Live, LiveText, Pixels, TextEdit};
+use rune::{Key, KeyEvent, Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use y2e_core::{format_time_seconds, CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
@@ -235,6 +235,44 @@ impl State {
         let _ = std::process::Command::new(opener).arg(folder).spawn();
     }
 
+    /// Moves one end of the cut by `delta` seconds (keyboard control).
+    pub fn nudge_timeline(&mut self, start: bool, delta: i64) {
+        let total = self.duration();
+        if total == 0 {
+            return;
+        }
+        let (from, to) = if self.enable_snipper {
+            (self.start_time_secs, self.end_time_secs)
+        } else {
+            (0, total)
+        };
+        let (from, to) = nudged((from, to), total, start, delta);
+        self.start_time_secs = from;
+        self.end_time_secs = to;
+        self.enable_snipper = !(from == 0 && to >= total);
+    }
+
+    /// Keyboard control of the cut: arrows move its end (Shift: its start) by
+    /// one second, Up and Down by ten, Home selects the whole video.
+    pub fn timeline_key(&mut self, key: &KeyEvent) -> bool {
+        if !self.showing_source() || key.mods.cmd || key.mods.alt || key.mods.ctrl {
+            return false;
+        }
+        let step = match key.key {
+            Key::Left => -1,
+            Key::Right => 1,
+            Key::Down => -10,
+            Key::Up => 10,
+            Key::Home => {
+                self.reset_range();
+                return true;
+            }
+            _ => return false,
+        };
+        self.nudge_timeline(key.mods.shift, step);
+        true
+    }
+
     /// Whole video selected again: the cut is switched off.
     pub fn reset_range(&mut self) {
         self.start_time_secs = 0;
@@ -349,5 +387,31 @@ mod dirs {
         std::env::var("HOME")
             .ok()
             .map(|h| PathBuf::from(h).join("Downloads"))
+    }
+}
+
+/// One end of `range` moved by `delta` seconds, kept inside `0..=total` and
+/// at least one second long.
+fn nudged(range: (u64, u64), total: u64, start: bool, delta: i64) -> (u64, u64) {
+    let (from, to) = range;
+    let shift = |value: u64| (value as i64 + delta).clamp(0, total as i64) as u64;
+    if start {
+        (shift(from).min(to.saturating_sub(1)), to)
+    } else {
+        (from, shift(to).max(from + 1).min(total))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nudged;
+
+    #[test]
+    fn keeps_the_cut_inside_the_video_and_non_empty() {
+        assert_eq!(nudged((0, 100), 100, false, -10), (0, 90));
+        assert_eq!(nudged((0, 100), 100, false, 10), (0, 100));
+        assert_eq!(nudged((10, 20), 100, true, 50), (19, 20));
+        assert_eq!(nudged((10, 20), 100, false, -50), (10, 11));
+        assert_eq!(nudged((3, 20), 100, true, -10), (0, 20));
     }
 }
