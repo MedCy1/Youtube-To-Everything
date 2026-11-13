@@ -1,0 +1,30 @@
+Third-party software in y2e
+===========================
+
+y2e is released under the GNU Affero General Public License, version 3 or
+later (see LICENSE). It is built from the open source components listed
+below, which keep their own licenses. The full text of each license follows
+the list of the crates that use it. The fonts embedded in the interface come
+at the end.
+
+Overview
+--------
+{{#each overview}}
+{{count}}  {{{name}}}
+{{/each}}
+
+Licenses
+--------
+{{#each licenses}}
+
+================================================================================
+{{{name}}}
+================================================================================
+
+Used by:
+{{#each used_by}}
+  - {{crate.name}} {{crate.version}}{{#if crate.repository}} ({{crate.repository}}){{/if}}
+{{/each}}
+
+{{{text}}}
+{{/each}}
