@@ -1,4 +1,4 @@
-use rune::color::hex;
+use rune::color::{hex, oklch};
 use rune::Color;
 
 /// Warm night palette: the source artwork is the hero, the interface is glass over it.
@@ -26,19 +26,22 @@ fn c(h: &str) -> Color {
     hex(h).unwrap_or(Color::BLACK)
 }
 
-pub fn palette() -> Palette {
+/// The neutrals are fixed; every coloured token is derived from one hue so the
+/// whole interface follows the artwork while keeping the same lightness and chroma.
+pub fn palette(hue: f32) -> Palette {
+    let accent = oklch(0.72, 0.19, hue);
     Palette {
         bg: c("#14100E"),
         ink: c("#1A0F0C"),
         text: c("#F7F1EA"),
         text_dim: c("#DCD1C6"),
         text_faint: c("#B9ACA0"),
-        accent: c("#FF6A4D"),
-        accent_hi: c("#FF9A84"),
-        ember: c("#FFB36B"),
-        accent_deep: c("#5A241B"),
+        accent,
+        accent_hi: oklch(0.83, 0.11, hue),
+        ember: oklch(0.83, 0.13, hue + 28.0),
+        accent_deep: oklch(0.30, 0.08, hue),
         on_accent: c("#1A0F0C"),
-        violet: c("#5B3A8C"),
+        violet: oklch(0.42, 0.16, hue + 270.0),
         glass: c("#181110B8"),
         glass_line: c("#FFFFFF24"),
         chip: c("#FFFFFF17"),

@@ -1,5 +1,6 @@
 mod state;
 mod theme;
+mod tint;
 mod view;
 
 use crossbeam_channel::unbounded;
@@ -77,20 +78,28 @@ fn main() {
                                                         let rgba = image::load_from_memory(&bytes)
                                                             .ok()?
                                                             .into_rgba8();
+                                                        let hue = tint::dominant_hue(
+                                                            &rgba,
+                                                            rgba.width(),
+                                                            rgba.height(),
+                                                        );
                                                         let pixels = Pixels::new();
                                                         pixels.set(
                                                             rgba.width(),
                                                             rgba.height(),
                                                             rgba.into_raw(),
                                                         );
-                                                        Some(pixels)
+                                                        Some((pixels, hue))
                                                     })
                                                     .await
                                                     .ok()
                                                     .flatten();
-                                                if let Some(preview) = preview {
-                                                    preview_handle.update(move |s, _tx| {
+                                                if let Some((preview, hue)) = preview {
+                                                    preview_handle.update(move |s, tx| {
+                                                        tx.animated();
                                                         s.thumbnail = Some(preview);
+                                                        s.accent_hue =
+                                                            hue.unwrap_or(state::BRAND_HUE);
                                                     });
                                                 }
                                             });

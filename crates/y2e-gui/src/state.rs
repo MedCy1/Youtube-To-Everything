@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use y2e_core::{CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
 
+/// Hue of the brand coral, used until artwork supplies its own.
+pub const BRAND_HUE: f32 = 35.0;
+
 pub static ACTION_TX: OnceLock<Sender<GuiAction>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
@@ -21,6 +24,7 @@ pub struct State {
     pub url_input: TextEdit,
     pub metadata: Option<VideoMetadata>,
     pub thumbnail: Option<Pixels>,
+    pub accent_hue: f32,
     pub is_loading_metadata: bool,
     pub is_downloading: bool,
     pub enable_snipper: bool,
@@ -44,6 +48,7 @@ impl Default for State {
             url_input,
             metadata: None,
             thumbnail: None,
+            accent_hue: BRAND_HUE,
             is_loading_metadata: false,
             is_downloading: false,
             enable_snipper: false,
@@ -71,6 +76,7 @@ impl State {
 
         self.inspect_error = None;
         self.thumbnail = None;
+        self.accent_hue = BRAND_HUE;
         self.is_loading_metadata = true;
 
         if let Some(tx) = ACTION_TX.get() {

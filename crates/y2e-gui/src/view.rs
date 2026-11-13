@@ -568,7 +568,7 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
 }
 
 pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
-    let p = palette();
+    let p = palette(s.accent_hue);
     let k = Kit::neutral(true);
 
     let mut layout = col().padding(24.0).gap(18.0);
