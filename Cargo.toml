@@ -5,6 +5,10 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+# The one place the version lives: scripts/release.sh bumps it.
+version = "0.1.0"
+
 # `cargo build --profile dist` for shipping: slower to build, about 40% smaller.
 [profile.dist]
 inherits = "release"

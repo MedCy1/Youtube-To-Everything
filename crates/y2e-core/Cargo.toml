@@ -1,6 +1,6 @@
 [package]
 name = "y2e-core"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 description = "Core asynchronous download, inspection and transcoding engine for YouTube to Everything"
 authors = ["Youtube to Everything Contributors"]

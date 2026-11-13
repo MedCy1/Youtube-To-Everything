@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube to Everything
+GenericName=YouTube downloader
+Comment=Download, cut and convert a YouTube video: MP4, MP3, Discord or GIF
+Exec=y2e-gui
+Icon=y2e
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=youtube;video;download;mp3;gif;discord;

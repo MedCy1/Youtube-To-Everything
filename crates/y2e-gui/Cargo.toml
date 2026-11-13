@@ -1,6 +1,6 @@
 [package]
 name = "y2e-gui"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 description = "Native GPU Desktop UI for YouTube to Everything powered by Rune"
 authors = ["Youtube to Everything Contributors"]

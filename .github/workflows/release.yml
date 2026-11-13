@@ -1,0 +1,66 @@
+name: Release
+
+# Push a tag such as v0.2.0 (scripts/release.sh does it) to publish a release.
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build and publish
+    needs: check
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release notes read the history between tags
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev
+
+      - name: The tag must match the crate version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"]=="y2e-gui"))')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $version in Cargo.toml" >&2
+            exit 1
+          fi
+
+      - name: Build
+        run: cargo build --profile dist -p y2e-gui --locked
+
+      - name: Package
+        run: |
+          name="y2e-${GITHUB_REF_NAME}-linux-x86_64"
+          mkdir "$name"
+          cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md "$name/"
+          tar -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          echo "ASSET=$name.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+          prerelease: ${{ contains(github.ref_name, '-') }}
