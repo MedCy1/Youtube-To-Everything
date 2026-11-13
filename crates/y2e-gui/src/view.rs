@@ -818,10 +818,14 @@ fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                         .justify_end()
                         .child(size_hint(s, p))
                         .child(
-                            el().child(gfx::glow(
+                            el().on_hover_change(|s: &mut State, inside, _| {
+                                s.export_hover = inside
+                            })
+                            .child(gfx::glow(
                                 s.accent_hue,
                                 if s.is_downloading { 0.1 } else { 0.22 },
                                 7.0,
+                                s.export_hover || s.is_downloading,
                             ))
                             .child(export_button(s, p, k))
                             .child(completion_ring(s, p)),

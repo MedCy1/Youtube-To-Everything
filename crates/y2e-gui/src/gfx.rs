@@ -23,9 +23,10 @@ pub fn aurora(hue: f32) -> El {
     )
 }
 
-pub fn glow(hue: f32, intensity: f32, radius: f32) -> El {
+/// `moving` lets the aura flow; otherwise it rests in a fixed pose and costs no frames.
+pub fn glow(hue: f32, intensity: f32, radius: f32, moving: bool) -> El {
     rune::effect(GLOW)
-        .effect_data([hue, intensity, radius, 0.0])
+        .effect_data([hue, intensity, radius, if moving { 1.0 } else { 0.0 }])
         .effect_bleed(radius * 2.0)
         .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
         .radius(28.0)
@@ -58,15 +59,17 @@ fn layer(kind: u32, d: [f32; 4], shape: Shape, t: f32) -> Option<FxLayer> {
             color: rgb(srgb(0.72, 0.19, hue)),
             core: rgb(srgb(0.82, 0.14, hue + 12.0)),
             third: rgb(srgb(0.8, 0.15, hue + 32.0)),
-            breathe: 0.2,
+            breathe: if d[3] > 0.5 { 0.2 } else { 0.0 },
             intensity: d[1],
             radius: d[2],
-            aura_speed: 0.35,
+            aura_speed: if d[3] > 0.5 { 0.35 } else { 0.0 },
             ..Default::default()
         }),
         _ => return None,
     };
-    Some(fx.on(shape).at(t))
+    // Only the glow can rest; the landing aurora always flows.
+    let rest = kind == GLOW && d[3] < 0.5;
+    Some(fx.on(shape).at(t).reduced(rest))
 }
 
 #[derive(Default)]

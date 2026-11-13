@@ -45,6 +45,8 @@ impl Default for Scrub {
 
 pub struct State {
     pub scrub: Scrub,
+    /// The pointer is over the export button.
+    pub export_hover: bool,
     /// The field was filled from a link found in the clipboard.
     pub clipboard_link: bool,
     /// Number of finished exports, so each completion replays its celebration.
@@ -76,6 +78,7 @@ impl Default for State {
         url_input.focused = true;
         Self {
             scrub: Scrub::default(),
+            export_hover: false,
             clipboard_link: false,
             completed: 0,
             url_input,
