@@ -112,7 +112,7 @@ impl Default for State {
             progress_percent: 0.0,
             speed_str: "-".to_string(),
             eta_str: "-".to_string(),
-            status_text: "Prêt. Collez une URL YouTube pour démarrer.".to_string(),
+            status_text: "Prêt.".to_string(),
             downloaded_file: None,
             inspect_error: None,
             download_error: None,
@@ -170,7 +170,7 @@ impl State {
         self.progress_percent = 0.0;
         self.downloaded_file = None;
         self.download_error = None;
-        self.status_text = "Démarrage du téléchargement...".to_string();
+        self.status_text = "Démarrage…".to_string();
 
         let output_dir = dirs::download_dir().unwrap_or_else(|| PathBuf::from("./output"));
 
@@ -411,7 +411,7 @@ impl State {
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;
-                self.status_text = "Téléchargement en cours...".to_string();
+                self.status_text = "Téléchargement…".to_string();
             }
             CoreEvent::Progress(update) => {
                 self.progress_percent = update.percent.clamp(0.0, 100.0);
@@ -424,14 +424,14 @@ impl State {
             CoreEvent::Finished { output_path } => {
                 self.is_downloading = false;
                 self.progress_percent = 100.0;
-                self.status_text = "Opération terminée avec succès !".to_string();
+                self.status_text = "Export terminé.".to_string();
                 self.downloaded_file = Some(output_path);
                 self.completed += 1;
             }
             CoreEvent::Error(err) => {
                 self.is_downloading = false;
                 self.download_error = Some(err);
-                self.status_text = "Une erreur est survenue pendant le traitement.".to_string();
+                self.status_text = "L'export a échoué.".to_string();
             }
         }
     }

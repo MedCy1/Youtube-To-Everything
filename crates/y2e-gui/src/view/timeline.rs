@@ -124,7 +124,7 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .on_press(|s: &mut State| s.reset_range()),
             )
     } else {
-        text("Vidéo entière — glissez sur la forme d’onde pour découper")
+        text("Vidéo entière. Glissez sur la forme d’onde pour découper.")
             .font(face(15.0, 500))
             .color(p.text_dim)
     };
@@ -185,7 +185,7 @@ pub(super) fn scrub_marks(s: &State, p: &Palette) -> El {
         )
 }
 
-/// A cream grab handle on one side of the selection.
+/// A light grab handle on one side of the selection.
 pub(super) fn grip(p: &Palette, left: bool) -> El {
     let handle = el().w(6.0).radius(3.0).fill(p.text);
     if left {

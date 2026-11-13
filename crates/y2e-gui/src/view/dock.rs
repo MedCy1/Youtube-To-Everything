@@ -194,8 +194,8 @@ pub(super) fn format_size(mb: f64) -> String {
     }
 }
 
-/// What the file will weigh. Never blocks anything: a huge GIF stays possible,
-/// the interface only points at the way out.
+/// What the file will weigh. Never blocks: a huge GIF stays possible, and the
+/// interface only suggests a shorter clip.
 pub(super) fn size_hint(s: &State, p: &Palette) -> El {
     let seconds = s.selected_seconds();
     let Some(estimate) = s.preset.estimated_size_mb(seconds).filter(|_| seconds > 0) else {

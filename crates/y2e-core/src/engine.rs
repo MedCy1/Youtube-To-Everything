@@ -53,9 +53,7 @@ impl Engine {
 
         let _ = event_tx.send(CoreEvent::DownloadStarted).await;
         let _ = event_tx
-            .send(CoreEvent::StatusChanged(
-                "Initialisation du téléchargement...".to_string(),
-            ))
+            .send(CoreEvent::StatusChanged("Initialisation…".to_string()))
             .await;
 
         let output_template = options.output_dir.join("%(title).100B.%(ext)s");
@@ -175,7 +173,7 @@ impl Engine {
             DownloadPreset::Discord25Mb => {
                 let _ = event_tx
                     .send(CoreEvent::StatusChanged(
-                        "Compression Discord (< 25 Mo)...".to_string(),
+                        "Compression pour Discord (< 25 Mo)…".to_string(),
                     ))
                     .await;
                 let discord_output =
@@ -185,9 +183,7 @@ impl Engine {
             }
             DownloadPreset::GifMeme => {
                 let _ = event_tx
-                    .send(CoreEvent::StatusChanged(
-                        "Génération de l'animation GIF...".to_string(),
-                    ))
+                    .send(CoreEvent::StatusChanged("Création du GIF…".to_string()))
                     .await;
                 let gif_output = Self::convert_to_gif(&downloaded_file).await?;
                 let _ = tokio::fs::remove_file(&downloaded_file).await;
@@ -252,7 +248,7 @@ fn tail(bytes: &[u8]) -> String {
 }
 
 /// Runs ffmpeg without letting it write into our terminal; a failure carries
-/// its own message instead of passing the source file off as the result.
+/// ffmpeg's own message.
 pub(crate) async fn run_quiet(mut cmd: Command, name: &str) -> Result<()> {
     let out = cmd.stdin(Stdio::null()).output().await?;
     if out.status.success() {

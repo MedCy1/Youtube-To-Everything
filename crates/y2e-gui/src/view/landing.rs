@@ -96,7 +96,7 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         )
         .motion(motion::SNAPPY)
         .opacity(if locked { 0.45 } else { 1.0 })
-        // The whole pill is a click target for the field, not just its text.
+        // A click anywhere on the pill focuses the field.
         .on_press_tx(|s: &mut State, tx| {
             if s.tools_ready() {
                 tx.focus("url_input", false);
@@ -259,7 +259,7 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
                 .font(face(15.0, 600))
                 .color(p.accent_hi)
         } else {
-            text("MP4 · MP3 · Discord · GIF — et seulement le passage qui vous intéresse.")
+            text("MP4 · MP3 · Discord · GIF. Et seulement le passage qui vous intéresse.")
                 .font(face(15.0, 500))
                 .color(p.text_faint)
         });

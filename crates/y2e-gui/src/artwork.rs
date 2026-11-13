@@ -12,7 +12,7 @@ pub struct Artwork {
 }
 
 /// `None` when the picture cannot be fetched or decoded: the interface then
-/// goes on without artwork instead of waiting for it.
+/// goes on without artwork.
 pub async fn fetch(url: &str) -> Option<Artwork> {
     let output = tokio::process::Command::new("curl")
         .args(["--fail", "--location", "--silent", "--max-time", "10", url])

@@ -1,7 +1,7 @@
 use rune::color::{hex, oklch};
 use rune::Color;
 
-/// Warm night palette: the source artwork is the hero, the interface is glass over it.
+/// Warm dark palette. The artwork fills the window and the interface sits on top of it.
 pub struct Palette {
     pub bg: Color,
     pub ink: Color,
