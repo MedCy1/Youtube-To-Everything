@@ -1,11 +1,12 @@
 mod ambient;
+mod artwork;
 mod state;
 mod theme;
 mod tint;
 mod view;
 
 use crossbeam_channel::unbounded;
-use rune::{App, AppSpec, Pixels};
+use rune::{App, AppSpec};
 use std::sync::Arc;
 use y2e_core::{CoreEvent, DownloadOptions, Engine};
 
@@ -49,63 +50,16 @@ fn main() {
                             tokio::spawn(async move {
                                 match Engine::fetch_metadata(&url).await {
                                     Ok(metadata) => {
-                                        let thumbnail_url = metadata.thumbnail.clone();
-                                        handle.update(move |s, _tx| {
-                                            s.on_inspect_success(metadata);
+                                        // The interface only appears once the artwork is
+                                        // decoded, so its colours are final when it does.
+                                        let artwork = match metadata.thumbnail.clone() {
+                                            Some(url) => artwork::fetch(&url).await,
+                                            None => None,
+                                        };
+                                        handle.update(move |s, tx| {
+                                            tx.animated();
+                                            s.on_inspect_success(metadata, artwork);
                                         });
-                                        if let Some(url) = thumbnail_url {
-                                            let preview_handle = handle.clone();
-                                            tokio::spawn(async move {
-                                                let Ok(output) =
-                                                    tokio::process::Command::new("curl")
-                                                        .args([
-                                                            "--fail",
-                                                            "--location",
-                                                            "--silent",
-                                                            "--max-time",
-                                                            "10",
-                                                            &url,
-                                                        ])
-                                                        .output()
-                                                        .await
-                                                else {
-                                                    return;
-                                                };
-                                                if !output.status.success() {
-                                                    return;
-                                                }
-                                                let bytes = output.stdout;
-                                                let preview =
-                                                    tokio::task::spawn_blocking(move || {
-                                                        let rgba = image::load_from_memory(&bytes)
-                                                            .ok()?
-                                                            .into_rgba8();
-                                                        let hue = tint::dominant_hue(
-                                                            &rgba,
-                                                            rgba.width(),
-                                                            rgba.height(),
-                                                        );
-                                                        let pixels = Pixels::new();
-                                                        pixels.set(
-                                                            rgba.width(),
-                                                            rgba.height(),
-                                                            rgba.into_raw(),
-                                                        );
-                                                        Some((pixels, hue))
-                                                    })
-                                                    .await
-                                                    .ok()
-                                                    .flatten();
-                                                if let Some((preview, hue)) = preview {
-                                                    preview_handle.update(move |s, tx| {
-                                                        tx.animated();
-                                                        s.thumbnail = Some(preview);
-                                                        s.accent_hue =
-                                                            hue.unwrap_or(state::BRAND_HUE);
-                                                    });
-                                                }
-                                            });
-                                        }
                                     }
                                     Err(err) => {
                                         handle.update(move |s, _tx| {

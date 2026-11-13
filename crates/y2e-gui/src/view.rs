@@ -762,7 +762,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
 
     let mut layout = col().padding(24.0).gap(18.0);
 
-    if s.metadata.is_none() {
+    if !s.showing_source() {
         layout = layout.child(hero(s, &p));
     } else {
         layout = layout

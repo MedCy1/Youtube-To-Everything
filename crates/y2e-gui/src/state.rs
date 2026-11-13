@@ -1,3 +1,4 @@
+use crate::artwork::Artwork;
 use crossbeam_channel::Sender;
 use rune::{Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
@@ -148,6 +149,11 @@ impl State {
         }
     }
 
+    /// A source is on screen only once it is fully loaded, artwork included.
+    pub fn showing_source(&self) -> bool {
+        self.metadata.is_some() && !self.is_loading_metadata
+    }
+
     pub fn duration(&self) -> u64 {
         self.metadata
             .as_ref()
@@ -250,7 +256,7 @@ impl State {
         }
     }
 
-    pub fn on_inspect_success(&mut self, meta: VideoMetadata) {
+    pub fn on_inspect_success(&mut self, meta: VideoMetadata, artwork: Option<Artwork>) {
         let duration = meta.duration_seconds();
         self.start_time_secs = 0;
         self.end_time_secs = if duration > 0 { duration } else { 30 };
@@ -259,6 +265,11 @@ impl State {
         self.download_error = None;
         self.progress_percent = 0.0;
         self.metadata = Some(meta);
+        self.accent_hue = artwork
+            .as_ref()
+            .and_then(|art| art.hue)
+            .unwrap_or(BRAND_HUE);
+        self.thumbnail = artwork.map(|art| art.pixels);
         self.is_loading_metadata = false;
         self.inspect_error = None;
     }
@@ -271,7 +282,7 @@ impl State {
     pub fn apply_core_event(&mut self, event: CoreEvent) {
         match event {
             CoreEvent::MetadataLoaded(meta) => {
-                self.on_inspect_success(meta);
+                self.on_inspect_success(meta, None);
             }
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
