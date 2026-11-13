@@ -37,9 +37,15 @@ fn installed(tool: &str) -> Option<PathBuf> {
         .filter(|path| path.is_file())
 }
 
+/// The copy the app installed itself, unless the system provides the tool:
+/// that one belongs to the user's package manager and is never replaced.
+fn managed(tool: &str) -> Option<PathBuf> {
+    installed(tool).filter(|_| !on_path(tool))
+}
+
 /// What to run for `tool`: the one on `PATH`, else the app's own copy.
 pub fn command(tool: &str) -> Command {
-    match installed(tool).filter(|_| !on_path(tool)) {
+    match managed(tool) {
         Some(path) => Command::new(path),
         None => Command::new(tool),
     }
@@ -47,10 +53,7 @@ pub fn command(tool: &str) -> Command {
 
 /// Where yt-dlp should look for ffmpeg, when only the app's copy exists.
 pub fn ffmpeg_location() -> Option<PathBuf> {
-    if on_path("ffmpeg") {
-        return None;
-    }
-    installed("ffmpeg").and_then(|path| path.parent().map(Path::to_path_buf))
+    managed("ffmpeg").and_then(|path| path.parent().map(Path::to_path_buf))
 }
 
 /// The tools that can be found neither on `PATH` nor among the app's own.
@@ -77,6 +80,73 @@ pub fn install_supported() -> bool {
     TOOLS
         .into_iter()
         .all(|tool| asset(tool, std::env::consts::OS, std::env::consts::ARCH).is_some())
+}
+
+/// A tool that has a newer version worth installing.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Update {
+    pub tool: &'static str,
+    /// What changes, for display.
+    pub detail: String,
+    /// The app installed this copy and can replace it; otherwise it belongs to
+    /// the user's package manager and only they can update it.
+    pub managed: bool,
+}
+
+/// Release versions are dates (`2026.10.26`), so text order is time order.
+fn newer(latest: &str, current: &str) -> bool {
+    latest > current
+}
+
+const FFMPEG_MARKER: &str = "ffmpeg.installed";
+/// ffmpeg changes slowly; the app's own copy is only suggested for renewal after this long.
+const FFMPEG_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(120 * 24 * 3600);
+
+async fn version(tool: &str) -> Option<String> {
+    let out = command(tool).arg("--version").output().await.ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    text.lines()
+        .next()
+        .map(|l| l.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+async fn latest_ytdlp() -> Option<String> {
+    let json = fetch_text("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
+        .await
+        .ok()?;
+    serde_json::from_str::<serde_json::Value>(&json)
+        .ok()?
+        .get("tag_name")?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Looks for newer versions of what is installed. Quiet on any failure (no
+/// network, rate limit): an update check must never get in the way.
+pub async fn updates() -> Vec<Update> {
+    let mut found = Vec::new();
+    if let (Some(current), Some(latest)) = (version("yt-dlp").await, latest_ytdlp().await) {
+        if newer(&latest, &current) {
+            found.push(Update {
+                tool: "yt-dlp",
+                detail: format!("{current} → {latest}"),
+                managed: managed("yt-dlp").is_some(),
+            });
+        }
+    }
+    let age = managed_dir()
+        .and_then(|dir| std::fs::metadata(dir.join(FFMPEG_MARKER)).ok())
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|time| time.elapsed().ok());
+    if managed("ffmpeg").is_some() && age.is_some_and(|age| age > FFMPEG_MAX_AGE) {
+        found.push(Update {
+            tool: "ffmpeg",
+            detail: "installé depuis plus de 4 mois".to_string(),
+            managed: true,
+        });
+    }
+    found
 }
 
 fn failure(what: impl Into<String>) -> Y2eError {
@@ -199,6 +269,7 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
             }
             let _ = tokio::fs::remove_dir_all(&staging).await;
             let _ = tokio::fs::remove_file(&part).await;
+            tokio::fs::write(dir.join(FFMPEG_MARKER), "").await?;
         }
     }
     Ok(())
@@ -227,6 +298,13 @@ mod tests {
         let listing = "aaa  other\nbbb *yt-dlp_linux\nccc  yt-dlp_linux_aarch64\n";
         assert_eq!(expected_hash(listing, "yt-dlp_linux"), Some("bbb"));
         assert_eq!(expected_hash(listing, "missing"), None);
+    }
+
+    #[test]
+    fn a_release_is_newer_only_when_its_date_is_later() {
+        assert!(newer("2026.11.02", "2026.10.26"));
+        assert!(!newer("2026.10.26", "2026.10.26"));
+        assert!(!newer("2026.10.26", "2026.11.02"));
     }
 
     #[test]

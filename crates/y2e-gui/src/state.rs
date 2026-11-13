@@ -14,6 +14,7 @@ pub static ACTION_TX: OnceLock<Sender<GuiAction>> = OnceLock::new();
 pub enum GuiAction {
     InspectMetadata(String),
     InstallTools(Vec<&'static str>),
+    CheckUpdates,
     StartDownload {
         url: String,
         time_range: Option<TimeRange>,
@@ -55,6 +56,10 @@ pub struct State {
     /// What the installer is doing, while it runs.
     pub installing: Option<String>,
     pub install_error: Option<String>,
+    /// Newer versions of the tools, once the startup check has answered.
+    pub updates: Vec<y2e_core::tools::Update>,
+    /// The user chose to carry on without updating, for this session.
+    pub updates_dismissed: bool,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -90,6 +95,8 @@ impl Default for State {
             missing_tools,
             installing: None,
             install_error: None,
+            updates: Vec::new(),
+            updates_dismissed: false,
             completed: 0,
             url_input,
             metadata: None,
@@ -357,20 +364,32 @@ impl State {
     }
 
     pub fn install_tools(&mut self) {
-        if self.installing.is_some() {
+        self.install(self.missing_tools.clone());
+    }
+
+    pub fn update_tools(&mut self) {
+        let ours = self.updates.iter().filter(|u| u.managed);
+        self.install(ours.map(|u| u.tool).collect());
+    }
+
+    fn install(&mut self, tools: Vec<&'static str>) {
+        if self.installing.is_some() || tools.is_empty() {
             return;
         }
         if let Some(tx) = ACTION_TX.get() {
             self.installing = Some("Préparation".to_string());
             self.install_error = None;
-            let _ = tx.send(GuiAction::InstallTools(self.missing_tools.clone()));
+            let _ = tx.send(GuiAction::InstallTools(tools));
         }
     }
 
     pub fn finish_install(&mut self, result: Result<(), String>) {
         self.installing = None;
         match result {
-            Ok(()) => self.missing_tools = y2e_core::tools::missing(),
+            Ok(()) => {
+                self.missing_tools = y2e_core::tools::missing();
+                self.updates.clear();
+            }
             Err(err) => self.install_error = Some(err),
         }
     }

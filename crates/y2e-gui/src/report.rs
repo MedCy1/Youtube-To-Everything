@@ -82,6 +82,32 @@ pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
     }
 }
 
+/// The landing card offering newer versions of the tools. What the user's
+/// package manager owns is announced, not offered: only they can update it.
+pub fn updates(list: &[y2e_core::tools::Update]) -> Report {
+    let names: Vec<&str> = list.iter().map(|u| u.tool).collect();
+    let details: Vec<&str> = list.iter().map(|u| u.detail.as_str()).collect();
+    let theirs: Vec<&str> = list.iter().filter(|u| !u.managed).map(|u| u.tool).collect();
+    let advice = if theirs.is_empty() {
+        "Rester à jour évite les erreurs quand YouTube change.".to_string()
+    } else {
+        format!(
+            "À mettre à jour avec votre gestionnaire de paquets : {}.",
+            theirs.join(" et ")
+        )
+    };
+    Report {
+        headline: if names == ["yt-dlp"] {
+            "Une mise à jour de yt-dlp est disponible."
+        } else if names == ["ffmpeg"] {
+            "Une mise à jour de ffmpeg est disponible."
+        } else {
+            "Des mises à jour sont disponibles."
+        },
+        cause: Some(format!("{}. {advice}", details.join(" · "))),
+    }
+}
+
 pub fn explain(raw: &str) -> Report {
     let lower = raw.to_lowercase();
     match KNOWN
@@ -188,5 +214,21 @@ mod tests {
             missing_tools(&["yt-dlp", "ffmpeg"], true).headline,
             "yt-dlp et ffmpeg sont introuvables."
         );
+    }
+
+    #[test]
+    fn leaves_the_package_managers_tools_to_the_user() {
+        let update = |tool, managed| y2e_core::tools::Update {
+            tool,
+            detail: "1 → 2".to_string(),
+            managed,
+        };
+        let report = updates(&[update("yt-dlp", false)]);
+        assert!(report
+            .cause
+            .unwrap()
+            .contains("gestionnaire de paquets : yt-dlp"));
+        let report = updates(&[update("yt-dlp", true)]);
+        assert!(!report.cause.unwrap().contains("gestionnaire"));
     }
 }

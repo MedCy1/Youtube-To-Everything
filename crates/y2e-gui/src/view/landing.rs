@@ -3,7 +3,7 @@
 use rune::tok::motion;
 use rune::{col, el, row, text, text_input, El, LoopSpec, Transition};
 
-use crate::report::{explain, missing_tools, Report};
+use crate::report::{explain, missing_tools, updates, Report};
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -122,6 +122,11 @@ pub(super) fn logo(p: &Palette, size: f32) -> El {
 
 /// The landing view's answer to a source that could not be read.
 pub(super) fn error_card(report: &Report, p: &Palette) -> El {
+    notice_card("hero-error", "!", p.danger, report, p)
+}
+
+/// A rounded card with a coloured badge, a headline and an optional second line.
+fn notice_card(key: &str, badge: &str, tint: Color, report: &Report, p: &Palette) -> El {
     let mut details = col().grow(1.0).min_w(0.0).gap(2.0).child(
         text(report.headline)
             .font(face(17.0, 600))
@@ -138,7 +143,7 @@ pub(super) fn error_card(report: &Report, p: &Palette) -> El {
         );
     }
     row()
-        .key("hero-error")
+        .key(key.to_string())
         .transition(Transition::offset(0.0, 16.0).combined(Transition::opacity()))
         .w_full()
         .max_w(680.0)
@@ -149,13 +154,13 @@ pub(super) fn error_card(report: &Report, p: &Palette) -> El {
         .radius(20.0)
         .backdrop_blur(18.0)
         .fill(p.glass.alpha(0.6))
-        .border(1.0, p.danger.alpha(0.5))
+        .border(1.0, tint.alpha(0.5))
         .child(
             el().size(36.0, 36.0)
                 .radius(18.0)
-                .fill(p.danger.alpha(0.18))
+                .fill(tint.alpha(0.18))
                 .center()
-                .child(text("!").font(face(19.0, 700)).color(p.danger)),
+                .child(text(badge.to_string()).font(face(19.0, 700)).color(tint)),
         )
         .child(details)
 }
@@ -216,6 +221,38 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         }
     } else if let Some(error) = &s.inspect_error {
         stack = stack.child(error_card(&explain(error), p));
+    } else if !s.updates.is_empty() && !s.updates_dismissed {
+        stack = stack.child(notice_card(
+            "hero-update",
+            "↑",
+            p.accent,
+            &updates(&s.updates),
+            p,
+        ));
+        // Only what the app installed can be updated from here.
+        let can_update = s.updates.iter().any(|u| u.managed);
+        let mut actions = row().gap(12.0);
+        if can_update {
+            actions = actions.child(
+                solid_button("Mettre à jour", "update-tools", true, false, p)
+                    .default_button()
+                    .on_press(|s: &mut State| s.update_tools()),
+            );
+        }
+        let dismiss = solid_button(
+            if can_update { "Plus tard" } else { "Compris" },
+            "dismiss-update",
+            true,
+            can_update,
+            p,
+        )
+        .on_press(|s: &mut State| s.updates_dismissed = true);
+        // Alone, it answers Return.
+        stack = stack.child(actions.child(if can_update {
+            dismiss
+        } else {
+            dismiss.default_button()
+        }));
     } else {
         stack = stack.child(if s.clipboard_link {
             text("Lien détecté dans le presse-papier. Appuyez sur Entrée pour le lire.")

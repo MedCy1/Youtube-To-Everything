@@ -16,6 +16,9 @@ use crate::view::app_view;
 
 fn main() {
     let (action_tx, action_rx) = std::sync::mpsc::channel::<GuiAction>();
+    if y2e_core::tools::missing().is_empty() {
+        let _ = action_tx.send(GuiAction::CheckUpdates);
+    }
     let _ = state::ACTION_TX.set(action_tx);
 
     let spec = AppSpec {
@@ -71,6 +74,17 @@ fn main() {
                                         });
                                     }
                                 }
+                            });
+                        }
+                        GuiAction::CheckUpdates => {
+                            tokio::spawn(async move {
+                                let updates = y2e_core::tools::updates().await;
+                                handle.update(move |s, tx| {
+                                    if !updates.is_empty() {
+                                        tx.animated();
+                                    }
+                                    s.updates = updates;
+                                });
                             });
                         }
                         GuiAction::InstallTools(tools) => {
