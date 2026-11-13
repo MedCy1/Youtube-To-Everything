@@ -1,27 +1,49 @@
+use rune::color::hex;
 use rune::Color;
 
+/// Warm night palette: the source artwork is the hero, the interface is glass over it.
 pub struct Palette {
     pub bg: Color,
-    pub surface: Color,
-    pub card: Color,
-    pub text_primary: Color,
-    pub text_secondary: Color,
-    pub text_muted: Color,
+    pub ink: Color,
+    pub text: Color,
+    pub text_dim: Color,
+    pub text_faint: Color,
     pub accent: Color,
+    pub accent_hi: Color,
+    pub ember: Color,
+    pub accent_deep: Color,
+    pub on_accent: Color,
+    pub violet: Color,
+    pub glass: Color,
+    pub glass_line: Color,
+    pub chip: Color,
+    pub bar: Color,
     pub success: Color,
     pub danger: Color,
-    pub control_bg: Color,
 }
 
-pub const PALETTE: Palette = Palette {
-    bg: Color { r: 0.08, g: 0.08, b: 0.10, a: 1.0 },
-    surface: Color { r: 0.12, g: 0.12, b: 0.15, a: 1.0 },
-    card: Color { r: 0.16, g: 0.16, b: 0.20, a: 1.0 },
-    text_primary: Color { r: 0.95, g: 0.95, b: 0.98, a: 1.0 },
-    text_secondary: Color { r: 0.70, g: 0.70, b: 0.78, a: 1.0 },
-    text_muted: Color { r: 0.45, g: 0.45, b: 0.52, a: 1.0 },
-    accent: Color { r: 0.98, g: 0.22, b: 0.22, a: 1.0 },
-    success: Color { r: 0.18, g: 0.80, b: 0.44, a: 1.0 },
-    danger: Color { r: 0.92, g: 0.28, b: 0.28, a: 1.0 },
-    control_bg: Color { r: 0.20, g: 0.20, b: 0.26, a: 1.0 },
-};
+fn c(h: &str) -> Color {
+    hex(h).unwrap_or(Color::BLACK)
+}
+
+pub fn palette() -> Palette {
+    Palette {
+        bg: c("#14100E"),
+        ink: c("#1A0F0C"),
+        text: c("#F7F1EA"),
+        text_dim: c("#DCD1C6"),
+        text_faint: c("#B9ACA0"),
+        accent: c("#FF6A4D"),
+        accent_hi: c("#FF9A84"),
+        ember: c("#FFB36B"),
+        accent_deep: c("#5A241B"),
+        on_accent: c("#1A0F0C"),
+        violet: c("#5B3A8C"),
+        glass: c("#181110B8"),
+        glass_line: c("#FFFFFF24"),
+        chip: c("#FFFFFF17"),
+        bar: c("#7A6A62"),
+        success: c("#9BCD61"),
+        danger: c("#FF8A7D"),
+    }
+}

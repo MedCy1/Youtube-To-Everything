@@ -1,298 +1,602 @@
-use rune::tok::{motion, radius, type_};
-use rune::{Cx, El, col, el, row, spacer, text, text_input, Color};
+use rune::tok::motion;
+use rune::{col, el, row, spacer, text, text_input, Color, Cx, El, SurfaceFit, TextStyle};
+use rune_kit::{Kit, RollingText};
+use std::f32::consts::PI;
 use y2e_core::{format_time_seconds, DownloadPreset};
 
 use crate::state::State;
-use crate::theme::PALETTE;
+use crate::theme::{palette, Palette};
 
-pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
-    let p = &PALETTE;
+const WAVE_BARS: usize = 72;
 
-    // --- Header ---
-    let badge = el()
-        .px(8.0)
-        .py(2.0)
-        .radius(radius::SM)
-        .fill(p.accent)
-        .child(
-            text("y2e")
-                .font(type_::LABEL)
-                .color(Color::WHITE),
-        );
+fn face(size: f32, weight: u16) -> TextStyle {
+    TextStyle::new(size, weight.into())
+}
 
-    let header_title = text("YouTube to Everything")
-        .font(type_::TITLE)
-        .color(p.text_primary);
+/// Display type: heavy weight, pulled tight.
+fn display(size: f32, tracking: f32) -> TextStyle {
+    let mut style = face(size, 700);
+    style.tracking = tracking;
+    style
+}
 
-    let subtitle = text("Convertisseur ultra-rapide et tactile propulsé par Rune")
-        .font(type_::LABEL)
-        .color(p.text_muted);
+fn figures(size: f32, weight: u16) -> TextStyle {
+    let mut style = face(size, weight);
+    style.features = "'tnum' 1";
+    style
+}
 
-    let header = row()
-        .w_full()
-        .gap(12.0)
-        .center_y()
-        .child(badge)
-        .child(col().child(header_title).child(subtitle));
+fn fill_parent() -> El {
+    el().pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
+}
 
-    // --- Input Bar ---
-    let url_field = text_input(&s.url_input, type_::BODY.lh(24.0))
-        .key("url_input")
-        .single_line()
-        .grow(1.0)
-        .color(p.text_primary)
-        .placeholder("Colle une URL YouTube (ex: https://youtube.com/watch?v=...)", p.text_muted)
-        .on_edit(|s: &mut State| &mut s.url_input);
+fn clear(color: Color) -> Color {
+    color.alpha(0.0)
+}
 
-    let inspect_btn = row()
-        .key("inspect_btn")
-        .px(14.0)
-        .py(8.0)
-        .radius(radius::MD)
-        .fill(if s.is_loading_metadata { p.control_bg } else { p.card })
-        .motion(motion::SNAPPY)
-        .center_y()
-        .child(
-            text(if s.is_loading_metadata { "Analyse..." } else { "Inspecter" })
-                .font(type_::LABEL)
-                .color(p.text_primary),
-        )
-        .on_press(|s: &mut State| s.trigger_inspect());
+/// The backdrop of the whole window: the source artwork once it has arrived,
+/// otherwise a slow-lit aurora in the brand colours.
+fn scene(s: &State, p: &Palette) -> El {
+    let mut stage = fill_parent().fill(p.bg).clip_rounded(0.0);
 
-    let input_container = row()
-        .w_full()
-        .px(14.0)
-        .py(8.0)
-        .radius(radius::MD)
-        .fill(p.surface)
-        .gap(12.0)
-        .center_y()
-        .child(url_field)
-        .child(inspect_btn);
-
-    // --- Metadata Card (si chargée) ---
-    let meta_card = if let Some(meta) = &s.metadata {
-        let title_text = text(meta.title.clone())
-            .font(type_::TITLE)
-            .color(p.text_primary);
-
-        let uploader = meta.uploader.as_deref().unwrap_or("Auteur inconnu");
-        let details = text(format!("Chaîne: {}  •  Durée totale: {}", uploader, meta.formatted_duration()))
-            .font(type_::LABEL)
-            .color(p.text_secondary);
-
-        col()
-            .w_full()
-            .px(16.0)
-            .py(12.0)
-            .radius(radius::MD)
-            .fill(p.card)
-            .gap(6.0)
-            .motion(motion::SNAPPY)
-            .child(title_text)
-            .child(details)
-    } else {
-        col()
-    };
-
-    // --- Precision Snipper Section ---
-    let snipper_toggle = row()
-        .gap(10.0)
-        .center_y()
-        .child(
-            el()
-                .size(16.0, 16.0)
-                .radius(8.0)
-                .fill(if s.enable_snipper { p.accent } else { p.control_bg })
-                .motion(motion::SNAPPY),
-        )
-        .child(
-            text(if s.enable_snipper { "Snipper Temporel Actif" } else { "Mode Snipper Désactivé (Vidéo complète)" })
-                .font(type_::BODY)
-                .color(if s.enable_snipper { p.text_primary } else { p.text_secondary }),
-        )
-        .on_press(|s: &mut State| s.enable_snipper = !s.enable_snipper);
-
-    let snipper_controls = if s.enable_snipper {
-        let start_str = format_time_seconds(s.start_time_secs);
-        let end_str = format_time_seconds(s.end_time_secs);
-        let diff_secs = s.end_time_secs.saturating_sub(s.start_time_secs);
-
-        let btn_adjust = |label: &'static str, delta: i64, is_start: bool| {
-            row()
-                .px(8.0)
-                .py(4.0)
-                .radius(radius::SM)
-                .fill(p.control_bg)
-                .center()
-                .child(text(label).font(type_::LABEL).color(p.text_primary))
-                .on_press(move |s: &mut State| {
-                    if is_start {
-                        let new_val = (s.start_time_secs as i64 + delta).max(0) as u64;
-                        if new_val < s.end_time_secs {
-                            s.start_time_secs = new_val;
-                        }
-                    } else {
-                        let max_d = s.metadata.as_ref().map(|m| m.duration_seconds()).unwrap_or(3600);
-                        let new_val = ((s.end_time_secs as i64 + delta).max(s.start_time_secs as i64 + 1) as u64).min(max_d);
-                        s.end_time_secs = new_val;
-                    }
-                })
-        };
-
-        row()
-            .w_full()
-            .px(12.0)
-            .py(8.0)
-            .radius(radius::SM)
-            .fill(p.surface)
-            .gap(12.0)
-            .center_y()
-            .child(text("Début:").font(type_::LABEL).color(p.text_muted))
-            .child(btn_adjust("-10s", -10, true))
-            .child(text(start_str).font(type_::SECTION).color(p.accent))
-            .child(btn_adjust("+10s", 10, true))
-            .child(spacer())
-            .child(text("Fin:").font(type_::LABEL).color(p.text_muted))
-            .child(btn_adjust("-10s", -10, false))
-            .child(text(end_str).font(type_::SECTION).color(p.accent))
-            .child(btn_adjust("+10s", 10, false))
-            .child(spacer())
-            .child(text(format!("(Extrait: {}s)", diff_secs)).font(type_::LABEL).color(p.text_secondary))
-    } else {
-        row()
-    };
-
-    let snipper_box = col()
-        .w_full()
-        .px(16.0)
-        .py(12.0)
-        .radius(radius::MD)
-        .fill(p.card)
-        .gap(10.0)
-        .child(snipper_toggle)
-        .child(snipper_controls);
-
-    // --- Presets Bar ---
-    let presets = [
-        DownloadPreset::MaxQuality,
-        DownloadPreset::Discord25Mb,
-        DownloadPreset::AudioMp3,
-        DownloadPreset::GifMeme,
-    ];
-
-    let mut presets_row = row().w_full().gap(10.0);
-    for preset in presets {
-        let is_selected = s.preset == preset;
-        let card = col()
-            .grow(1.0)
-            .px(12.0)
-            .py(10.0)
-            .radius(radius::MD)
-            .fill(if is_selected { p.surface } else { p.card })
-            .motion(motion::SNAPPY)
-            .gap(4.0)
-            .child(
-                text(preset.label())
-                    .font(type_::SECTION)
-                    .color(if is_selected { p.accent } else { p.text_primary }),
-            )
-            .child(
-                text(preset.description())
-                    .font(type_::LABEL)
-                    .color(p.text_muted),
-            )
-            .on_press(move |s: &mut State| s.preset = preset);
-        presets_row = presets_row.child(card);
+    match (&s.thumbnail, &s.metadata) {
+        (Some(art), Some(_)) => {
+            stage = stage.child(fill_parent().pixels_fit(art, SurfaceFit::Fill));
+        }
+        _ => {
+            let loaded = s.metadata.is_some();
+            let ember = p.ember;
+            stage = stage
+                .child(fill_parent().radial_gradient(
+                    [if loaded { 0.2 } else { 0.8 }, 0.18],
+                    [760.0, 520.0],
+                    [
+                        (0.0, ember.alpha(0.95)),
+                        (0.5, p.accent.alpha(0.35)),
+                        (1.0, clear(p.accent)),
+                    ],
+                ))
+                .child(fill_parent().radial_gradient(
+                    [if loaded { 0.9 } else { 0.1 }, 0.9],
+                    [820.0, 560.0],
+                    [
+                        (0.0, p.violet.alpha(1.0)),
+                        (0.6, p.violet.alpha(0.45)),
+                        (1.0, clear(p.violet)),
+                    ],
+                ))
+                .child(fill_parent().radial_gradient(
+                    [0.5, 1.1],
+                    [900.0, 320.0],
+                    [(0.0, p.accent.alpha(0.55)), (1.0, clear(p.accent))],
+                ));
+        }
     }
 
-    // --- Download Button ---
-    let download_btn = row()
-        .key("download_btn")
-        .w_full()
-        .h(46.0)
-        .radius(radius::MD)
-        .fill(if s.is_downloading { p.control_bg } else { p.accent })
+    stage.child(fill_parent().linear_gradient(
+        PI,
+        [
+            (0.00, p.bg.alpha(0.62)),
+            (0.16, p.bg.alpha(0.18)),
+            (0.30, p.bg.alpha(0.0)),
+            (0.52, p.bg.alpha(0.30)),
+            (0.74, p.bg.alpha(0.72)),
+            (1.00, p.bg.alpha(0.94)),
+        ],
+    ))
+}
+
+fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Palette) -> El {
+    let (fill, ink) = if busy {
+        (p.chip, p.text_faint)
+    } else {
+        (p.text, p.ink)
+    };
+    el().key(key)
+        .h(if big { 44.0 } else { 34.0 })
+        .px(if big { 22.0 } else { 16.0 })
+        .radius(if big { 22.0 } else { 17.0 })
+        .fill(fill)
         .motion(motion::SNAPPY)
+        .press_scale(0.96)
         .center()
         .child(
-            text(if s.is_downloading { "⚡ TÉLÉCHARGEMENT EN COURS..." } else { "⚡ LANCER LE TÉLÉCHARGEMENT" })
-                .font(type_::SECTION)
-                .color(Color::WHITE),
+            text(label)
+                .font(face(if big { 15.0 } else { 14.0 }, 600))
+                .color(ink),
         )
+}
+
+/// The single URL field, wide in the empty state, a compact pill once a source is loaded.
+fn url_pill(s: &State, p: &Palette, big: bool) -> El {
+    let input = text_input(&s.url_input, face(if big { 17.0 } else { 15.0 }, 500))
+        .key("url_input")
+        .grow(1.0)
+        .single_line()
+        .placeholder("Collez un lien YouTube", p.text_faint)
+        .on_edit(|s: &mut State| &mut s.url_input);
+
+    let action = solid_button(
+        if s.is_loading_metadata {
+            "Lecture…"
+        } else {
+            "Lire"
+        },
+        "inspect",
+        big,
+        s.is_loading_metadata,
+        p,
+    )
+    .on_press(|s: &mut State| {
+        if !s.is_loading_metadata {
+            s.trigger_inspect();
+        }
+    });
+
+    let height = if big { 64.0 } else { 48.0 };
+    row()
+        .w_full()
+        .max_w(if big { 680.0 } else { 560.0 })
+        .h(height)
+        .pl(if big { 26.0 } else { 20.0 })
+        .pr(if big { 10.0 } else { 7.0 })
+        .center_y()
+        .gap(12.0)
+        .radius(height / 2.0)
+        .backdrop_blur(18.0)
+        .fill(p.glass.alpha(0.5))
+        .border(1.0, p.glass_line)
+        .child(input)
+        .child(action)
+}
+
+fn logo(p: &Palette, size: f32) -> El {
+    row()
+        .gap(10.0)
+        .center_y()
+        .child(
+            el().size(size, size)
+                .radius(size * 0.32)
+                .fill(p.accent)
+                .center()
+                .child(text("y").font(face(size * 0.62, 800)).color(p.on_accent)),
+        )
+        .child(text("y2e").font(display(size * 0.72, -0.4)).color(p.text))
+}
+
+fn hero(s: &State, p: &Palette) -> El {
+    let mut stack = col()
+        .w_full()
+        .grow(1.0)
+        .center()
+        .gap(30.0)
+        .child(logo(p, 34.0))
+        .child(
+            col()
+                .center()
+                .gap(0.0)
+                .child(text("Une vidéo.").font(display(74.0, -2.6)).color(p.text))
+                .child(
+                    text("Tous les formats.")
+                        .font(display(74.0, -2.6))
+                        .color(p.text_dim),
+                ),
+        )
+        .child(url_pill(s, p, true));
+
+    if s.is_loading_metadata {
+        stack = stack.child(
+            row()
+                .gap(12.0)
+                .center_y()
+                .child(
+                    row()
+                        .w(120.0)
+                        .h(3.0)
+                        .radius(2.0)
+                        .fill(p.chip)
+                        .child(
+                            el().grow(2.0)
+                                .h_full()
+                                .radius(2.0)
+                                .fill(p.accent)
+                                .motion(motion::SNAPPY),
+                        )
+                        .child(el().grow(3.0)),
+                )
+                .child(
+                    text("Lecture de la source")
+                        .font(face(15.0, 500))
+                        .color(p.text_dim),
+                ),
+        );
+    } else if let Some(error) = &s.inspect_error {
+        stack = stack.child(text(error.clone()).font(face(15.0, 500)).color(p.danger));
+    } else {
+        stack = stack.child(
+            text("MP4 · MP3 · Discord · GIF — et seulement le passage qui vous intéresse.")
+                .font(face(15.0, 500))
+                .color(p.text_faint),
+        );
+    }
+    stack
+}
+
+fn top_bar(s: &State, p: &Palette) -> El {
+    row()
+        .w_full()
+        .center_y()
+        .child(el().w(130.0).child(logo(p, 28.0)))
+        .child(spacer())
+        .child(url_pill(s, p, false))
+        .child(spacer())
+        .child(el().w(130.0))
+}
+
+fn title_block(s: &State, p: &Palette) -> El {
+    let Some(meta) = &s.metadata else {
+        return el();
+    };
+    let uploader = meta.uploader.as_deref().unwrap_or("Auteur inconnu");
+    let length = if meta.duration_seconds() > 0 {
+        format!("Source chargée · {}", meta.formatted_duration())
+    } else {
+        "Source chargée".to_string()
+    };
+    col()
+        .w_full()
+        .gap(10.0)
+        .child(
+            row()
+                .self_start()
+                .h(28.0)
+                .px(12.0)
+                .gap(8.0)
+                .center_y()
+                .radius(14.0)
+                .backdrop_blur(12.0)
+                .fill(p.glass.alpha(0.55))
+                .child(el().size(8.0, 8.0).radius(4.0).fill(p.accent_hi))
+                .child(text(length).font(figures(14.0, 500)).color(p.text)),
+        )
+        .child(
+            text(meta.title.clone())
+                .font(display(46.0, -1.4))
+                .color(p.text)
+                .wrap()
+                .max_lines(2),
+        )
+        .child(text(uploader).font(face(17.0, 500)).color(p.text_dim))
+}
+
+/// Waveform-style bars: pure texture, deterministic from the video id.
+fn bar_height(index: usize, seed: f32) -> f32 {
+    let i = index as f32;
+    let a = (i * 0.61 + seed).sin();
+    let b = (i * 0.17 + seed * 1.7).sin();
+    8.0 + 40.0 * (0.25 + 0.75 * (a * b).abs())
+}
+
+fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
+    let total = s.duration().max(1) as f32;
+    let (a, b) = if s.enable_snipper {
+        (s.start_time_secs as f32, s.end_time_secs as f32)
+    } else {
+        (0.0, total)
+    };
+    let (fa, fb) = ((a / total).clamp(0.0, 1.0), (b / total).clamp(0.0, 1.0));
+    let seed = s
+        .metadata
+        .as_ref()
+        .map(|m| {
+            m.id.bytes()
+                .fold(7u32, |h, c| h.wrapping_mul(31).wrapping_add(c as u32))
+                % 97
+        })
+        .unwrap_or(3) as f32;
+
+    let mut bars = row().w_full().h(64.0).gap(3.0).center_y();
+    for index in 0..WAVE_BARS {
+        let at = (index as f32 + 0.5) / WAVE_BARS as f32;
+        let inside = at >= fa && at <= fb;
+        bars = bars.child(
+            el().grow(1.0)
+                .h(bar_height(index, seed))
+                .radius(2.0)
+                .fill(if inside { p.accent_hi } else { p.bar })
+                .motion(motion::SNAPPY),
+        );
+    }
+
+    let selection = el()
+        .grow(((fb - fa) * 1000.0).max(8.0))
+        .h_full()
+        .radius(12.0)
+        .border(2.0, p.accent)
+        .fill(p.accent.alpha(0.14))
+        .motion(motion::SNAPPY)
+        .child(grip(p, true))
+        .child(grip(p, false));
+
+    let track = el()
+        .key("timeline")
+        .w_full()
+        .h(64.0)
+        .child(bars)
+        .child(
+            fill_parent().child(
+                row()
+                    .w_full()
+                    .h_full()
+                    .child(el().grow((fa * 1000.0).max(0.0)).h_full())
+                    .child(selection)
+                    .child(el().grow(((1.0 - fb) * 1000.0).max(0.0)).h_full()),
+            ),
+        )
+        .on_drag(|s: &mut State, d, _| {
+            let (phase, x, start_x, w) = (d.phase, d.x, d.start_x, d.w);
+            s.drag_timeline(phase, x, start_x, w, &mut d.data);
+        });
+
+    let summary: El = if s.enable_snipper {
+        let length = (s.end_time_secs.saturating_sub(s.start_time_secs)) as f64;
+        row()
+            .gap(10.0)
+            .center_y()
+            .child(
+                text(format!(
+                    "Découpe  {} → {}",
+                    format_time_seconds(s.start_time_secs),
+                    format_time_seconds(s.end_time_secs)
+                ))
+                .font(figures(15.0, 600))
+                .color(p.text),
+            )
+            .child(
+                RollingText::new("selection-length", format_time_seconds(length as u64))
+                    .value(length)
+                    .font(figures(15.0, 600))
+                    .color(p.accent_hi)
+                    .build(k),
+            )
+            .child(
+                el().h(26.0)
+                    .px(10.0)
+                    .radius(13.0)
+                    .fill(p.chip)
+                    .center()
+                    .press_scale(0.96)
+                    .child(text("Tout").font(face(13.0, 600)).color(p.text_dim))
+                    .on_press(|s: &mut State| s.reset_range()),
+            )
+    } else {
+        text("Vidéo entière — glissez sur la forme d’onde pour découper")
+            .font(face(15.0, 500))
+            .color(p.text_dim)
+    };
+
+    col().w_full().gap(10.0).child(track).child(
+        row()
+            .w_full()
+            .center_y()
+            .child(text("0:00").font(figures(14.0, 500)).color(p.text_faint))
+            .child(spacer())
+            .child(summary)
+            .child(spacer())
+            .child(
+                text(if s.duration() > 0 {
+                    format_time_seconds(s.duration())
+                } else {
+                    "—".to_string()
+                })
+                .font(figures(14.0, 500))
+                .color(p.text_faint),
+            ),
+    )
+}
+
+/// A cream grab handle on one side of the selection.
+fn grip(p: &Palette, left: bool) -> El {
+    let handle = el().w(6.0).radius(3.0).fill(p.text);
+    if left {
+        handle.pin(Some(-4.0), Some(16.0), None, Some(16.0))
+    } else {
+        handle.pin(None, Some(16.0), Some(-4.0), Some(16.0))
+    }
+}
+
+fn preset_chip(
+    s: &State,
+    p: &Palette,
+    preset: DownloadPreset,
+    tag: &'static str,
+    name: &'static str,
+) -> El {
+    let on = s.preset == preset;
+    el().h(48.0)
+        .px(18.0)
+        .radius(14.0)
+        .fill(if on { p.text } else { p.chip })
+        .motion(motion::SNAPPY)
+        .press_scale(0.97)
+        .center()
+        .child(
+            row()
+                .gap(10.0)
+                .center_y()
+                .child(text(tag).font(face(12.0, 700)).color(if on {
+                    p.accent_deep
+                } else {
+                    p.text_faint
+                }))
+                .child(
+                    text(name)
+                        .font(face(15.0, if on { 600 } else { 500 }))
+                        .color(if on { p.ink } else { p.text }),
+                ),
+        )
+        .on_press(move |s: &mut State| s.preset = preset)
+}
+
+fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
+    let progress = s.progress_percent.clamp(0.0, 100.0);
+    let button = el()
+        .key("launch_export")
+        .w(200.0)
+        .h(56.0)
+        .radius(28.0)
+        .clip_rounded(28.0)
+        .fill(if s.is_downloading { p.chip } else { p.accent })
+        .motion(motion::SNAPPY)
+        .press_scale(0.97)
         .on_press(|s: &mut State| {
             if !s.is_downloading {
                 s.trigger_download();
             }
         });
 
-    // --- Progress & Status ---
-    let filled = s.progress_percent.max(0.1);
-    let remaining = (100.0 - s.progress_percent).max(0.0);
-    let progress_bar = row()
-        .key("progress_track")
-        .w_full()
-        .h(8.0)
-        .radius(4.0)
-        .fill(p.surface)
-        .child(
-            el()
-                .key("progress_fill")
-                .grow(filled)
-                .h_full()
-                .radius(4.0)
-                .fill(p.accent)
-                .motion(motion::SNAPPY),
-        )
-        .child(
-            el()
-                .key("progress_empty")
-                .grow(remaining)
-                .h_full(),
-        );
-
-    let status_line = row()
-        .w_full()
-        .gap(8.0)
-        .center_y()
-        .child(text(s.status_text.clone()).font(type_::BODY).color(p.text_secondary))
-        .child(spacer())
-        .child(text(format!("{:.1}%", s.progress_percent)).font(type_::SECTION).color(p.text_primary))
-        .child(text(format!("• {}", s.speed_str)).font(type_::LABEL).color(p.text_muted))
-        .child(text(format!("• ETA {}", s.eta_str)).font(type_::LABEL).color(p.text_muted));
-
-    let mut footer = col().w_full().gap(8.0).child(status_line).child(progress_bar);
-
-    if let Some(path) = &s.downloaded_file {
-        let msg = format!("✓ Fichier disponible : {}", path.display());
-        footer = footer.child(text(msg).font(type_::SECTION).color(p.success));
-    }
-
-    if let Some(err) = &s.download_error {
-        let msg = format!("Erreur téléchargement : {}", err);
-        footer = footer.child(text(msg).font(type_::SECTION).color(p.danger));
-    }
-
-    let inspect_err_view = if let Some(err) = &s.inspect_error {
-        text(format!("Erreur inspection : {}", err)).font(type_::LABEL).color(p.danger)
+    if s.is_downloading {
+        button
+            .child(
+                el().pin(Some(0.0), None, Some(0.0), Some(0.0))
+                    .h(4.0)
+                    .child(
+                        row()
+                            .w_full()
+                            .h_full()
+                            .child(
+                                el().grow(progress)
+                                    .h_full()
+                                    .fill(p.accent)
+                                    .motion(motion::SNAPPY),
+                            )
+                            .child(el().grow((100.0 - progress).max(0.0))),
+                    ),
+            )
+            .child(
+                fill_parent().center().child(
+                    RollingText::new("export-progress", format!("{progress:.0} %"))
+                        .value(progress as f64)
+                        .font(figures(20.0, 700))
+                        .color(p.text)
+                        .build(k),
+                ),
+            )
     } else {
-        text("")
+        button.child(
+            fill_parent().center().child(
+                row()
+                    .gap(12.0)
+                    .center_y()
+                    .child(
+                        text("Exporter")
+                            .font(display(19.0, -0.3))
+                            .color(p.on_accent),
+                    )
+                    .child(text("↓").font(face(20.0, 700)).color(p.on_accent)),
+            ),
+        )
+    }
+}
+
+fn notice(color: Color, label: &str, detail: String, p: &Palette) -> El {
+    row()
+        .w_full()
+        .px(18.0)
+        .py(12.0)
+        .gap(12.0)
+        .center_y()
+        .radius(16.0)
+        .backdrop_blur(16.0)
+        .fill(p.glass)
+        .border(1.0, color.alpha(0.55))
+        .child(el().size(8.0, 8.0).radius(4.0).fill(color))
+        .child(text(label.to_string()).font(face(15.0, 600)).color(color))
+        .child(
+            text(detail)
+                .font(face(14.0, 400))
+                .color(p.text_dim)
+                .truncate_fade(),
+        )
+}
+
+fn dock(s: &State, p: &Palette, k: &Kit) -> El {
+    let stats: El = if s.is_downloading && s.speed_str != "-" && s.eta_str != "-" {
+        text(format!("{} · {}", s.speed_str, s.eta_str))
+            .font(figures(14.0, 500))
+            .color(p.text_faint)
+    } else {
+        el()
     };
 
-    // --- Container Principal ---
     col()
         .w_full()
+        .padding(22.0)
+        .gap(20.0)
+        .radius(28.0)
+        .backdrop_blur(28.0)
+        .fill(p.glass)
+        .border(1.0, p.glass_line)
+        .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
+        .child(timeline(s, p, k))
+        .child(
+            row()
+                .w_full()
+                .gap(8.0)
+                .center_y()
+                .child(preset_chip(
+                    s,
+                    p,
+                    DownloadPreset::MaxQuality,
+                    "MP4",
+                    "Qualité max",
+                ))
+                .child(preset_chip(s, p, DownloadPreset::AudioMp3, "MP3", "Audio"))
+                .child(preset_chip(
+                    s,
+                    p,
+                    DownloadPreset::Discord25Mb,
+                    "< 25 Mo",
+                    "Discord",
+                ))
+                .child(preset_chip(s, p, DownloadPreset::GifMeme, "GIF", "Boucle"))
+                .child(spacer())
+                .child(stats)
+                .child(el().w(8.0))
+                .child(export_button(s, p, k)),
+        )
+}
+
+pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
+    let p = palette();
+    let k = Kit::neutral(true);
+
+    let mut layout = col().padding(24.0).gap(18.0);
+
+    if s.metadata.is_none() {
+        layout = layout.child(hero(s, &p));
+    } else {
+        layout = layout
+            .child(top_bar(s, &p))
+            .child(spacer())
+            .child(title_block(s, &p));
+        if let Some(path) = &s.downloaded_file {
+            layout = layout.child(notice(
+                p.success,
+                "Export terminé",
+                path.display().to_string(),
+                &p,
+            ));
+        }
+        if let Some(error) = &s.download_error {
+            layout = layout.child(notice(p.danger, "Échec", error.clone(), &p));
+        }
+        layout = layout.child(dock(s, &p, &k));
+    }
+
+    el().w_full()
         .h_full()
         .fill(p.bg)
-        .padding(20.0)
-        .gap(16.0)
-        .child(header)
-        .child(input_container)
-        .child(inspect_err_view)
-        .child(meta_card)
-        .child(snipper_box)
-        .child(presets_row)
-        .child(download_btn)
-        .child(spacer())
-        .child(footer)
+        .child(scene(s, &p))
+        .child(fill_parent().child(layout.w_full().h_full()))
 }

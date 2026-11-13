@@ -115,9 +115,64 @@ impl State {
         }
     }
 
+    pub fn duration(&self) -> u64 {
+        self.metadata
+            .as_ref()
+            .map(|meta| meta.duration_seconds())
+            .unwrap_or(0)
+    }
+
+    /// Whole video selected again: the cut is switched off.
+    pub fn reset_range(&mut self) {
+        self.start_time_secs = 0;
+        self.end_time_secs = self.duration().max(1);
+        self.enable_snipper = false;
+    }
+
+    /// Timeline gesture. `data` remembers which handle the press grabbed
+    /// (0 = start, 1 = end) for the rest of the drag.
+    pub fn drag_timeline(
+        &mut self,
+        phase: rune::Phase,
+        x: f32,
+        start_x: f32,
+        w: f32,
+        data: &mut f32,
+    ) {
+        let total = self.duration();
+        if total == 0 || w <= 0.0 {
+            return;
+        }
+        let at = |px: f32| ((px / w).clamp(0.0, 1.0) * total as f32).round() as u64;
+        if matches!(phase, rune::Phase::Down) {
+            let pressed = at(start_x);
+            let to_start = pressed.abs_diff(self.start_time_secs);
+            let to_end = pressed.abs_diff(self.end_time_secs);
+            *data = if to_start <= to_end { 0.0 } else { 1.0 };
+        }
+        let t = at(x);
+        if *data < 0.5 {
+            self.start_time_secs = t.min(self.end_time_secs.saturating_sub(1));
+        } else {
+            self.end_time_secs = t.max(self.start_time_secs + 1).min(total);
+        }
+        self.enable_snipper = true;
+        if matches!(phase, rune::Phase::Up)
+            && self.start_time_secs == 0
+            && self.end_time_secs >= total
+        {
+            self.enable_snipper = false;
+        }
+    }
+
     pub fn on_inspect_success(&mut self, meta: VideoMetadata) {
         let duration = meta.duration_seconds();
-        self.end_time_secs = if duration > 0 { duration.min(60) } else { 30 };
+        self.start_time_secs = 0;
+        self.end_time_secs = if duration > 0 { duration } else { 30 };
+        self.enable_snipper = false;
+        self.downloaded_file = None;
+        self.download_error = None;
+        self.progress_percent = 0.0;
         self.metadata = Some(meta);
         self.is_loading_metadata = false;
         self.inspect_error = None;
