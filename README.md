@@ -10,8 +10,9 @@ Download a YouTube video, keep only the part you want, and export it in the form
 [![Release](https://img.shields.io/github/v/release/MedCy1/Youtube-To-Everything?include_prereleases&sort=semver)](https://github.com/MedCy1/Youtube-To-Everything/releases)
 ![Platform](https://img.shields.io/badge/platform-Linux-informational)
 ![Rust](https://img.shields.io/badge/built%20with-Rust-orange)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 
-[Installation](#installation) · [Features](#features) · [Keyboard shortcuts](#keyboard-shortcuts) · [Build from source](#build-from-source) · [Contributing](#contributing)
+[Installation](#installation) · [Features](#features) · [Keyboard shortcuts](#keyboard-shortcuts) · [Build from source](#build-from-source) · [Contributing](#contributing) · [License](#license)
 
 <br>
 
@@ -150,6 +151,8 @@ cargo test --all
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), because they become the release notes. Feature specifications live in [`specs/`](specs).
 
+Please open an issue before sending code. Because y2e is also offered under a commercial license, code contributions need a contributor agreement that lets the author license them that way.
+
 ### Publishing a release
 
 ```bash
@@ -169,6 +172,18 @@ The `Release` workflow runs the tests, builds with the `dist` profile, and publi
 
 - When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
 - Installing and updating the external tools is only supported on Linux.
+
+## License
+
+y2e is free software, released under the [GNU Affero General Public License, version 3 or later](LICENSE). You can use, study, modify and share it, including commercially. If you distribute a modified version, or run one as a network service, you must release your source code under the same license and keep the copyright notices.
+
+Copyright (c) 2026 MedCy1.
+
+### Commercial license
+
+If the AGPL does not fit your use, for example because you want to include y2e or its engine in a closed-source product, a separate commercial license is available from the author. Get in touch through this repository.
+
+Third-party dependencies keep their own licenses, mostly MIT and Apache-2.0.
 
 ## Responsible use
 

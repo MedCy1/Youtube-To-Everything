@@ -8,6 +8,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["MedCy1"]
 repository = "https://github.com/MedCy1/Youtube-To-Everything"
+license = "AGPL-3.0-or-later"
 publish = false
 
 [workspace.dependencies]
