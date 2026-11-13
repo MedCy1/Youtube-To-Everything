@@ -14,19 +14,17 @@ const AURORA: u32 = 1;
 const GLOW: u32 = 2;
 
 /// An effect slot. `hue` is the interface's hue, so effects follow the artwork.
-pub fn aurora(hue: f32) -> El {
-    rune::effect(AURORA).effect_data([hue, 0.0, 0.0, 0.0]).pin(
-        Some(0.0),
-        Some(0.0),
-        Some(0.0),
-        Some(0.0),
-    )
+/// `moving` lets it drift; a window out of focus holds it still.
+pub fn aurora(hue: f32, moving: bool) -> El {
+    rune::effect(AURORA)
+        .effect_data([hue, 0.0, 0.0, f32::from(moving)])
+        .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
 }
 
 /// `moving` lets the aura flow; otherwise it rests in a fixed pose and costs no frames.
 pub fn glow(hue: f32, intensity: f32, radius: f32, moving: bool) -> El {
     rune::effect(GLOW)
-        .effect_data([hue, intensity, radius, if moving { 1.0 } else { 0.0 }])
+        .effect_data([hue, intensity, radius, f32::from(moving)])
         .effect_bleed(radius * 2.0)
         .pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0))
         .radius(28.0)
@@ -67,9 +65,7 @@ fn layer(kind: u32, d: [f32; 4], shape: Shape, t: f32) -> Option<FxLayer> {
         }),
         _ => return None,
     };
-    // Only the glow can rest; the landing aurora always flows.
-    let rest = kind == GLOW && d[3] < 0.5;
-    Some(fx.on(shape).at(t).reduced(rest))
+    Some(fx.on(shape).at(t).reduced(d[3] < 0.5))
 }
 
 #[derive(Default)]

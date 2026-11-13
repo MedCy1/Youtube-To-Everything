@@ -96,9 +96,13 @@ fn short_cause(raw: &str) -> String {
         }
     }
     let mut lines = cause.lines().filter(|l| !l.trim().is_empty());
-    let line = if from_ffmpeg { lines.next_back() } else { lines.next() }
-        .unwrap_or("")
-        .trim();
+    let line = if from_ffmpeg {
+        lines.next_back()
+    } else {
+        lines.next()
+    }
+    .unwrap_or("")
+    .trim();
     if line.chars().count() > MAX_CAUSE {
         let cut: String = line.chars().take(MAX_CAUSE).collect();
         format!("{}…", cut.trim_end())
