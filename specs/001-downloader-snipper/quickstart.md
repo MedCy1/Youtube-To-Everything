@@ -1,12 +1,12 @@
 # Quickstart: YouTube to Everything (y2e)
 
-## Prérequis Système
+## Prérequis système
 - Linux / macOS / Windows
 - Rust 1.80+ (`cargo`)
-- `yt-dlp` installé et accessible dans le `PATH`
-- `ffmpeg` installé et accessible dans le `PATH`
+- `yt-dlp` et `ffmpeg` dans le `PATH`, ou installés par l'application au premier lancement (Linux uniquement)
+- `curl`
 
-## Commandes Principales
+## Commandes principales
 
 ### 1. Compilation de la bibliothèque et des exécutables
 ```bash

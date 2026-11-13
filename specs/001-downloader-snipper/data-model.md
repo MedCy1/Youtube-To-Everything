@@ -1,33 +1,30 @@
 # Data Model: YouTube to Everything Engine
 
-## Entities & Value Objects
+## Entities and value objects
 
 ### 1. `VideoMetadata`
-Représente l'état inspecté d'une ressource vidéo.
+Ce que `yt-dlp --dump-json` renvoie d'une vidéo inspectée. Seuls l'identifiant et le titre sont toujours présents.
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoMetadata {
     pub id: String,
-    pub url: String,
     pub title: String,
-    pub uploader: String,
-    pub duration_seconds: u64,
-    pub thumbnail_url: String,
-    pub chapters: Vec<VideoChapter>,
+    pub uploader: Option<String>,
+    pub duration: Option<f64>,       // secondes
+    pub thumbnail: Option<String>,   // URL
+    pub chapters: Option<Vec<VideoChapter>>,
+    pub webpage_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VideoChapter {
     pub title: String,
-    pub start_time: f64,
-    pub end_time: f64,
+    pub start_seconds: f64,
+    pub end_seconds: f64,
 }
 ```
 
 ### 2. `TimeRange` (Snipper)
-Définit un intervalle temporel de coupe optionnel.
+Intervalle de coupe. `TimeRange::new` refuse un début supérieur ou égal à la fin.
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TimeRange {
     pub start_seconds: u64,
     pub end_seconds: u64,
@@ -35,9 +32,8 @@ pub struct TimeRange {
 ```
 
 ### 3. `DownloadPreset`
-Sélecteur du mode de transformation.
+Mode de transformation choisi pour l'export.
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DownloadPreset {
     MaxQuality,
     Discord25Mb,
@@ -45,25 +41,26 @@ pub enum DownloadPreset {
     GifMeme,
 }
 ```
+`estimated_size_mb(seconds)` donne une taille approximative du fichier produit, ou `None` quand elle dépend trop de la source (qualité maximale).
 
-### 4. `ProgressUpdate` & `CoreEvent`
-Événements transmis du moteur asynchrone vers l'UI.
+### 4. `ProgressUpdate` et `CoreEvent`
+Événements envoyés du moteur asynchrone vers l'interface.
 ```rust
-#[derive(Debug, Clone)]
 pub struct ProgressUpdate {
-    pub percent: f32,          // 0.0 à 100.0
-    pub speed_bytes_per_sec: u64,
-    pub eta_seconds: u64,
-    pub status_text: String,
+    pub percent: f32,        // 0.0 à 100.0
+    pub speed: String,       // ex. "12.5MiB/s"
+    pub eta: String,         // ex. "00:15"
+    pub raw: String,         // la ligne d'origine de yt-dlp
 }
 
-#[derive(Debug, Clone)]
 pub enum CoreEvent {
-    MetadataLoaded(VideoMetadata),
     DownloadStarted,
     Progress(ProgressUpdate),
-    StepChanged(String),       // ex: "Transcodage Discord..."
-    Completed { file_path: std::path::PathBuf },
-    Failed { reason: String },
+    StatusChanged(String),   // ex. "Compression Discord (< 25 Mo)…"
+    Finished { output_path: std::path::PathBuf },
+    Error(String),
 }
 ```
+
+### 5. `tools`
+Module qui trouve `yt-dlp` et `ffmpeg` (le `PATH` d'abord, puis la copie de l'application dans `~/.local/share/y2e/bin`), les installe en vérifiant leur somme SHA-256 et signale les mises à jour disponibles.
