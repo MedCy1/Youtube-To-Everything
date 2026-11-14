@@ -5,6 +5,7 @@
 )]
 
 mod artwork;
+mod crash;
 mod gfx;
 mod link;
 mod report;
@@ -21,6 +22,7 @@ use crate::state::{GuiAction, State};
 use crate::view::app_view;
 
 fn main() {
+    crash::keep_a_log();
     let (action_tx, action_rx) = std::sync::mpsc::channel::<GuiAction>();
     if y2e_core::tools::missing().is_empty() {
         let _ = action_tx.send(GuiAction::CheckUpdates);
@@ -54,6 +56,8 @@ fn main() {
                 .expect("Failed to initialize background Tokio runtime");
 
             rt.block_on(async move {
+                // The tasks of the export in progress, so that it can be stopped.
+                let mut export: Vec<tokio::task::JoinHandle<()>> = Vec::new();
                 while let Ok(action) = action_rx.recv() {
                     let handle = handle_for_worker.clone();
                     match action {
@@ -123,7 +127,7 @@ fn main() {
                             let event_handle = handle.clone();
 
                             // Forward events to Rune UI
-                            tokio::spawn(async move {
+                            let forwarder = tokio::spawn(async move {
                                 // yt-dlp reports ~100 times a second; the bar eases between
                                 // targets, so a handful of updates per second looks the same.
                                 let mut last = std::time::Instant::now();
@@ -148,11 +152,17 @@ fn main() {
                                 output_dir,
                             };
 
-                            tokio::spawn(async move {
+                            let worker = tokio::spawn(async move {
                                 if let Err(e) = Engine::download(opts, event_tx.clone()).await {
                                     let _ = event_tx.send(CoreEvent::Error(e.to_string())).await;
                                 }
                             });
+                            export = vec![forwarder, worker];
+                        }
+                        GuiAction::CancelDownload => {
+                            for task in export.drain(..) {
+                                task.abort();
+                            }
                         }
                     }
                 }

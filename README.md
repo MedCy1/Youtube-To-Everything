@@ -61,7 +61,7 @@ The thumbnail fills the window and the accent colour is derived from its dominan
 
 ### Built for the keyboard
 
-Every control can be reached and named for screen readers, shows a focus ring, and the cut can be adjusted without touching the mouse. A YouTube link found on the clipboard when the window comes to the front is offered straight away. See the [shortcuts](#keyboard-shortcuts).
+Every control can be reached with the keyboard, shows a focus ring and is exposed to the system accessibility API (VoiceOver, Narrator and NVDA, Orca), with the clip range, the export progress and errors announced. The cut can be adjusted without touching the mouse. A YouTube link found on the clipboard when the window comes to the front is offered straight away. See the [shortcuts](#keyboard-shortcuts).
 
 ### It looks after its own tools
 
@@ -115,6 +115,7 @@ y2e relies on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) to read and fetch vid
 | Up, Down | Move the end of the clip by 10 seconds |
 | Shift with an arrow | Move the start instead of the end |
 | Home | Select the whole video again |
+| Escape | Cancel the export in progress |
 
 The arrow keys work as soon as a video is loaded, without selecting the timeline first, except while you are typing in the link field. Exported files are saved in your Downloads folder.
 
@@ -159,6 +160,8 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 ## Known limitations
 
 - When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
+- Screen reader support is built in but has not been tried with VoiceOver, Narrator, NVDA or Orca yet. Reports are welcome.
+- Cancelling a cut export stops `yt-dlp`, but on Windows the `ffmpeg` it started may keep running for a few seconds.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
 - On macOS, `ffmpeg` is installed automatically only if Homebrew is present,, and its installation shows the current stage, with the download percentage when Homebrew reports one.
 

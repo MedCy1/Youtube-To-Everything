@@ -203,6 +203,22 @@ pub(super) fn format_size(mb: f64) -> String {
 
 /// What the file will weigh. Never blocks: a huge GIF stays possible, and the
 /// interface only suggests a shorter clip.
+fn cancel_chip(p: &Palette) -> El {
+    el().h(34.0)
+        .px(16.0)
+        .radius(17.0)
+        .fill(p.chip)
+        .center()
+        .press_scale(0.96)
+        .role("button")
+        .label("Cancel export")
+        .shortcut_hint("Esc")
+        .focusable(true)
+        .focus_ring(2.0, 2.0, p.text)
+        .child(text("Cancel").font(face(14.0, 600)).color(p.text_dim))
+        .on_press(|s: &mut State| s.cancel_download())
+}
+
 pub(super) fn size_hint(s: &State, p: &Palette) -> El {
     let seconds = s.selected_seconds();
     let Some(estimate) = s.preset.estimated_size_mb(seconds).filter(|_| seconds > 0) else {
@@ -317,7 +333,11 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                         .gap(14.0)
                         .center_y()
                         .justify_end()
-                        .child(size_hint(s, p))
+                        .child(if s.is_downloading {
+                            cancel_chip(p)
+                        } else {
+                            size_hint(s, p)
+                        })
                         .child(
                             el().on_hover_change(|s: &mut State, inside, _| {
                                 s.export_hover = inside

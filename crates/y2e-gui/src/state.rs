@@ -15,6 +15,7 @@ pub enum GuiAction {
     InspectMetadata(String),
     InstallTools(Vec<&'static str>),
     CheckUpdates,
+    CancelDownload,
     StartDownload {
         url: String,
         time_range: Option<TimeRange>,
@@ -187,6 +188,20 @@ impl State {
         }
     }
 
+    /// Stops the export in progress. What was already written is left to
+    /// yt-dlp's own partial file, which a new export picks up again.
+    pub fn cancel_download(&mut self) {
+        if !self.is_downloading {
+            return;
+        }
+        if let Some(tx) = ACTION_TX.get() {
+            let _ = tx.send(GuiAction::CancelDownload);
+        }
+        self.is_downloading = false;
+        self.progress_percent = 0.0;
+        self.status_text = "Export cancelled.".to_string();
+    }
+
     /// Fills the empty field with a YouTube link found in the clipboard, when
     /// the landing view is waiting for one.
     pub fn offer_clipboard_link(&mut self, clipboard_text: &str) {
@@ -294,6 +309,10 @@ impl State {
     /// Keyboard control of the cut: arrows move its end (Shift: its start) by
     /// one second, Up and Down by ten, Home selects the whole video.
     pub fn timeline_key(&mut self, key: &KeyEvent) -> bool {
+        if self.is_downloading && key.key == Key::Escape {
+            self.cancel_download();
+            return true;
+        }
         if !self.showing_source() || key.mods.cmd || key.mods.alt || key.mods.ctrl {
             return false;
         }

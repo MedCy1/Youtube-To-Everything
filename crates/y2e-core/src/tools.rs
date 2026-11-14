@@ -26,6 +26,9 @@ fn exe(tool: &str) -> String {
 pub fn background(program: impl AsRef<OsStr>) -> Command {
     #[cfg_attr(not(windows), allow(unused_mut))]
     let mut cmd = Command::new(program);
+    // Dropping the task that runs a command (an export that is cancelled)
+    // stops the program too.
+    cmd.kill_on_drop(true);
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     cmd
@@ -498,6 +501,29 @@ mod tests {
     fn keeps_the_tools_in_a_folder_of_its_own() {
         let dir = managed_dir().expect("a data folder");
         assert!(dir.ends_with("y2e/bin") || dir.ends_with(r"y2e\bin"));
+    }
+
+    /// What a cancelled export relies on: dropping the task stops the program.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn aborting_a_task_stops_the_program_it_ran() {
+        let running = |pattern: &str| {
+            std::process::Command::new("pgrep")
+                .args(["-f", pattern])
+                .output()
+                .map(|o| o.status.success())
+        };
+        let Ok(_) = running("nothing-like-this") else {
+            return; // no pgrep here
+        };
+        let task = tokio::spawn(async {
+            let _ = background("sleep").arg("4711").status().await;
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert!(running("^sleep 4711$").unwrap());
+        task.abort();
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert!(!running("^sleep 4711$").unwrap());
     }
 
     #[test]

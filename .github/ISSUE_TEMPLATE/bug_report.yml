@@ -40,5 +40,5 @@ body:
     id: logs
     attributes:
       label: Messages
-      description: Any error text shown by the application or printed in the terminal.
+      description: Any error text shown by the application or printed in the terminal. After a crash, y2e.log in the data folder (next to the `bin` folder where the tools are kept) holds the details.
       render: text
