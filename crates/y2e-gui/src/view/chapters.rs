@@ -68,6 +68,9 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         })
         .w_full()
         .max_h(380.0)
+        // Room for the focus ring: the viewport would cut it off at the edges.
+        .padding(6.0)
+        .scroll_margin(6.0)
         .gap(6.0);
     for (index, (title, from, to)) in s.chapter_ranges().into_iter().enumerate() {
         let (a, b) = (format_time_seconds(from), format_time_seconds(to));
@@ -113,7 +116,7 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .gap(16.0)
         .radius(24.0)
         .backdrop_blur(28.0)
-        .fill(p.glass.alpha(0.88))
+        .fill(p.glass.alpha(super::settings::CARD_OPACITY))
         .border(1.0, p.text.alpha(0.12))
         .modal(true, |s: &mut State| s.chapters_open = false)
         .child(text(t().chapters).font(display(26.0, -0.6)).color(p.text))

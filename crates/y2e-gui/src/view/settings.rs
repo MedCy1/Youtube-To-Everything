@@ -10,6 +10,10 @@ use crate::theme::Palette;
 use super::landing::solid_button;
 use super::*;
 
+/// How opaque the card is. The blur behind it takes a moment to appear the
+/// first time, and until then whatever is behind must not show through.
+pub(super) const CARD_OPACITY: f32 = 0.97;
+
 /// The button that opens it, in the top right corner of every screen.
 pub(super) fn settings_button(p: &Palette) -> El {
     el().key("open-settings")
@@ -93,7 +97,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .gap(22.0)
         .radius(24.0)
         .backdrop_blur(28.0)
-        .fill(p.glass.alpha(0.88))
+        .fill(p.glass.alpha(CARD_OPACITY))
         .border(1.0, p.text.alpha(0.12))
         .modal(true, |s: &mut State| s.settings_open = false)
         .child(text(t().settings).font(display(26.0, -0.6)).color(p.text))
