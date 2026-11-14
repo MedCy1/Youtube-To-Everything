@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.2 (2026-11-14)
+
+
+### Features
+
+- Show an export as stages, each with its own progress
+
+### Bug fixes
+
+- gui: Say an export has started and forget the last one's figures
 ## v0.4.1 (2026-11-14)
 
 
