@@ -65,6 +65,22 @@ pub(super) fn completion_ring(s: &State, p: &Palette) -> El {
         .sequence(Sequence::new(RING))
 }
 
+/// The line under the percentage: speed and time left once known, and until then
+/// a word saying the export has started (the first seconds report nothing).
+fn progress_detail(s: &State, progress: f32) -> String {
+    let parts: Vec<&str> = [s.speed_str.trim(), s.eta_str.trim()]
+        .into_iter()
+        .filter(|value| !matches!(*value, "-" | "NA" | "N/A" | ""))
+        .collect();
+    if !parts.is_empty() {
+        parts.join(" · ")
+    } else if progress < 1.0 {
+        format!("{}…", t().preparing)
+    } else {
+        String::new()
+    }
+}
+
 pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
     let progress = s.progress_percent.clamp(0.0, 100.0);
     let button = el()
@@ -134,13 +150,9 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
                                 .build(k),
                         )
                         .child(
-                            text(if s.speed_str != "-" && s.eta_str != "-" {
-                                format!("{} · {}", s.speed_str.trim(), s.eta_str.trim())
-                            } else {
-                                String::new()
-                            })
-                            .font(figures(12.0, 500))
-                            .color(p.text_dim),
+                            text(progress_detail(s, progress))
+                                .font(figures(12.0, 500))
+                                .color(p.text_dim),
                         ),
                 ),
             )

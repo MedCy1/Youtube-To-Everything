@@ -546,6 +546,9 @@ impl State {
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;
+                self.progress_percent = 0.0;
+                self.speed_str = "-".to_string();
+                self.eta_str = "-".to_string();
             }
             CoreEvent::Progress(update) => {
                 self.progress_percent = update.percent.clamp(0.0, 100.0);
@@ -595,7 +598,7 @@ fn nudged(range: (u64, u64), total: u64, start: bool, delta: i64) -> (u64, u64) 
 #[cfg(test)]
 mod tests {
     use super::{nudged, State};
-    use y2e_core::{VideoChapter, VideoMetadata};
+    use y2e_core::{CoreEvent, ProgressUpdate, VideoChapter, VideoMetadata};
 
     fn with_chapters(chapters: &[(&str, f64, f64)]) -> State {
         State {
@@ -654,5 +657,19 @@ mod tests {
         let mut state = with_chapters(&[("a", 0.0, 100.0), ("b", 100.0, 120.0)]);
         state.select_chapter(0, 100);
         assert!(!state.enable_snipper);
+    }
+
+    #[test]
+    fn a_new_export_does_not_show_the_last_ones_figures() {
+        let mut s = State::default();
+        s.apply_core_event(CoreEvent::Progress(ProgressUpdate {
+            percent: 80.0,
+            speed: "1.5x".to_string(),
+            eta: "00:05".to_string(),
+            raw: String::new(),
+        }));
+        s.apply_core_event(CoreEvent::DownloadStarted);
+        assert_eq!(s.progress_percent, 0.0);
+        assert_eq!((s.speed_str.as_str(), s.eta_str.as_str()), ("-", "-"));
     }
 }
