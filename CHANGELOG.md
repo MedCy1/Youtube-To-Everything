@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.0 (2026-11-14)
+
+
+### Features
+
+- Translate the interface to French, with a language setting
+- Cut a video by chapter
+
+### Bug fixes
+
+- gui: Keep the focus ring whole in the chapter list and make the cards opaque
+- gui: Show the blur behind the settings and chapter cards from the first frame
+- gui: Keep the blur behind the cards in the studio
+
+### Internal
+
+- gui: Drop the video loaded chip to free a blur for the cards
 ## v0.3.0 (2026-11-14)
 
 
