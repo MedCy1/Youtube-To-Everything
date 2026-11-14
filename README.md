@@ -67,6 +67,10 @@ Every control can be reached with the keyboard, shows a focus ring and is expose
 
 y2e drives `yt-dlp` and `ffmpeg`. It uses the ones on your `PATH`, and if they are missing it offers to install them for you, then checks for newer versions of `yt-dlp` at launch. See [yt-dlp and ffmpeg](#yt-dlp-and-ffmpeg).
 
+### Settings
+
+The Settings button in the top right corner opens a small window with three options: the folder exports are saved in, the format selected when y2e starts, and whether the animated background stays still while the window is not in front. They are kept in `settings.json` in your config folder (`~/.config/y2e` on Linux, `~/Library/Application Support/y2e` on macOS, `%APPDATA%\y2e` on Windows).
+
 ### Clear errors
 
 Tool failures are turned into one plain sentence ("This video is not available.", "Could not connect. Check your network."). The technical detail only appears when the error is not recognised.
@@ -131,7 +135,7 @@ y2e relies on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) to read and fetch vid
 | Home | Select the whole video again |
 | Escape | Cancel the export in progress |
 
-The arrow keys work as soon as a video is loaded, without selecting the timeline first, except while you are typing in the link field. Exported files are saved in your Downloads folder.
+The arrow keys work as soon as a video is loaded, without selecting the timeline first, except while you are typing in the link field. Exported files are saved in your Downloads folder, unless you chose another one in the settings.
 
 ## Build from source
 
@@ -167,7 +171,6 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 ## Roadmap
 
-- A settings page (output folder, default preset, motion preferences).
 - A language switch, with French as the first translation.
 - Chapters, so a video can be cut by section.
 

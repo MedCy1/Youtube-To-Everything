@@ -9,11 +9,13 @@ use crate::theme::{palette, Palette};
 
 mod dock;
 mod landing;
+mod settings;
 mod studio;
 mod timeline;
 
 use dock::{dock, notice};
 use landing::{hero, logo, url_pill};
+use settings::{settings_button, settings_overlay};
 use studio::{title_block, top_bar};
 use timeline::timeline;
 
@@ -57,7 +59,10 @@ fn scene(s: &State, p: &Palette) -> El {
         }
         _ => {
             stage = stage
-                .child(gfx::aurora(s.accent_hue))
+                .child(gfx::aurora(
+                    s.accent_hue,
+                    !s.settings.pause_when_unfocused || s.focused,
+                ))
                 .child(fill_parent().radial_gradient(
                     [0.5, 0.46],
                     [560.0, 330.0],
@@ -139,6 +144,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         .fill(p.bg)
         // A link copied elsewhere is offered as soon as the window is back in front.
         .on_window_focus(|s: &mut State, focused, tx| {
+            s.focused = focused;
             if focused && !s.showing_source() && !s.is_loading_metadata {
                 tx.read_clipboard(|s: &mut State, content, _| {
                     s.offer_clipboard_link(content.text());
@@ -147,4 +153,6 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         })
         .child(scene(s, &p))
         .child(fill_parent().child(layout.w_full().h_full()))
+        .child(settings_button(&p))
+        .child(settings_overlay(s, &p))
 }

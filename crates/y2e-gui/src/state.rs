@@ -1,4 +1,5 @@
 use crate::artwork::Artwork;
+use crate::settings::Settings;
 use rune::{Key, KeyEvent, Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
@@ -67,6 +68,12 @@ pub struct State {
     /// A newer release of the app itself, once GitHub has said so.
     pub app_update: Option<y2e_core::app_update::AppUpdate>,
     pub app_update_dismissed: bool,
+    pub settings: Settings,
+    pub settings_open: bool,
+    /// Why the last attempt to choose a folder did not work.
+    pub settings_error: Option<String>,
+    /// The window is in front.
+    pub focused: bool,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -90,6 +97,47 @@ pub struct State {
     pub download_error: Option<String>,
 }
 
+impl State {
+    /// The state at startup, with what the user saved last time.
+    pub fn load() -> Self {
+        let settings = Settings::load();
+        Self {
+            preset: settings.default_preset,
+            settings,
+            ..Self::default()
+        }
+    }
+
+    pub fn set_default_preset(&mut self, preset: DownloadPreset) {
+        self.settings.default_preset = preset;
+        self.preset = preset;
+        self.settings.save();
+    }
+
+    pub fn set_pause_when_unfocused(&mut self, on: bool) {
+        self.settings.pause_when_unfocused = on;
+        self.settings.save();
+    }
+
+    pub fn set_export_dir(&mut self, dir: Option<PathBuf>) {
+        self.settings.output_dir = dir;
+        self.settings_error = None;
+        self.settings.save();
+    }
+
+    /// What the folder chooser answered: a folder, a cancellation, or a failure
+    /// (a Linux desktop with no file chooser portal, for one).
+    pub fn folder_chosen(&mut self, result: rune::FileDialogResult) {
+        match result {
+            Ok(Some(dir)) => self.set_export_dir(Some(dir)),
+            Ok(None) => {}
+            Err(error) => {
+                self.settings_error = Some(format!("Could not open the folder chooser: {error}"))
+            }
+        }
+    }
+}
+
 impl Default for State {
     fn default() -> Self {
         let mut url_input = TextEdit::new("");
@@ -107,6 +155,10 @@ impl Default for State {
             updates_dismissed: false,
             app_update: None,
             app_update_dismissed: false,
+            settings: Settings::default(),
+            settings_open: false,
+            settings_error: None,
+            focused: true,
             completed: 0,
             url_input,
             metadata: None,
@@ -182,7 +234,7 @@ impl State {
         self.download_error = None;
         self.status_text = "Starting…".to_string();
 
-        let output_dir = dirs::download_dir().unwrap_or_else(|| PathBuf::from("./output"));
+        let output_dir = self.settings.export_dir();
 
         if let Some(tx) = ACTION_TX.get() {
             let _ = tx.send(GuiAction::StartDownload {

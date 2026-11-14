@@ -9,6 +9,7 @@ mod crash;
 mod gfx;
 mod link;
 mod report;
+mod settings;
 mod state;
 mod theme;
 mod tint;
@@ -38,7 +39,7 @@ fn main() {
         ..AppSpec::new(
             "YouTube to Everything // Studio",
             (1140.0, 740.0),
-            State::default,
+            State::load,
             app_view,
         )
     };
