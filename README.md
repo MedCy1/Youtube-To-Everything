@@ -73,9 +73,13 @@ y2e drives `yt-dlp` and `ffmpeg`. It uses the ones on your `PATH`, and if they a
 
 ### Settings
 
-The Settings button in the top right corner opens a small window with four options: the folder exports are saved in, the format selected when y2e starts, whether the animated background stays still while the window is not in front, and the language. They are kept in `settings.json` in your config folder (`~/.config/y2e` on Linux, `~/Library/Application Support/y2e` on macOS, `%APPDATA%\y2e` on Windows).
+The Settings button in the top right corner opens a small window with five options: the folder exports are saved in, the format selected when y2e starts, whether the animated background stays still while the window is not in front, the language, and how much the interface moves. They are kept in `settings.json` in your config folder (`~/.config/y2e` on Linux, `~/Library/Application Support/y2e` on macOS, `%APPDATA%\y2e` on Windows).
 
 ### English and French
+
+### Animations
+
+y2e is animated, and the Animations setting tunes it. **Full** is the default. **Reduced** holds the background still and replaces movement with short fades, as the system's own "reduce motion" setting asks (y2e follows that setting too). **Performance** goes further and leaves out the blur behind the glass and the glow around the export button, which are what an older graphics card finds hardest.
 
 The interface speaks English and French. It follows the language of your system the first time, and the Settings window switches it at any moment. See [CONTRIBUTING.md](CONTRIBUTING.md) to add another language.
 

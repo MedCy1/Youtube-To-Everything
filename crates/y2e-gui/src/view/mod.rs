@@ -28,17 +28,31 @@ use timeline::timeline;
 /// plus the card fill them, so a banner's blur is skipped while a card is open.
 static CARD_OPEN: AtomicBool = AtomicBool::new(false);
 
-/// `backdrop_blur`, skipped while a card is open.
+/// Set in the performance mode, which leaves out the blur behind the glass.
+static LIGHT: AtomicBool = AtomicBool::new(false);
+
 trait Frosted {
+    /// `backdrop_blur`, skipped while a card is open.
     fn frosted(self, sigma: f32) -> Self;
+    /// A glass pane: blurred and tinted, or in the performance mode just more
+    /// opaque, so the text stays readable without the blur.
+    fn glass(self, sigma: f32, tint: Color, alpha: f32) -> Self;
 }
 
 impl Frosted for El {
     fn frosted(self, sigma: f32) -> Self {
-        if CARD_OPEN.load(Ordering::Relaxed) {
+        if CARD_OPEN.load(Ordering::Relaxed) || LIGHT.load(Ordering::Relaxed) {
             self
         } else {
             self.backdrop_blur(sigma)
+        }
+    }
+
+    fn glass(self, sigma: f32, tint: Color, alpha: f32) -> Self {
+        if LIGHT.load(Ordering::Relaxed) {
+            self.fill(tint.alpha(alpha.max(0.97)))
+        } else {
+            self.backdrop_blur(sigma).fill(tint.alpha(alpha))
         }
     }
 }
@@ -85,7 +99,7 @@ fn scene(s: &State, p: &Palette) -> El {
             stage = stage
                 .child(gfx::aurora(
                     s.accent_hue,
-                    !s.settings.pause_when_unfocused || s.focused,
+                    !s.settings.motion.is_calm() && (!s.settings.pause_when_unfocused || s.focused),
                 ))
                 .child(fill_parent().radial_gradient(
                     [0.5, 0.46],
@@ -112,8 +126,13 @@ fn scene(s: &State, p: &Palette) -> El {
     ))
 }
 
-pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
+pub fn app_view(s: &State, cx: &mut Cx<State>) -> El {
     CARD_OPEN.store(s.settings_open || s.chapters_open, Ordering::Relaxed);
+    LIGHT.store(s.settings.motion.is_light(), Ordering::Relaxed);
+    // Travel becomes a jump and opacity a short fade, as the system's own setting asks.
+    if s.settings.motion.is_calm() {
+        cx.reduced_motion(true);
+    }
     let p = palette(s.accent_hue);
     let k = Kit::neutral(true);
 

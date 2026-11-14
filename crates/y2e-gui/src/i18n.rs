@@ -145,6 +145,11 @@ pub struct Strings {
     pub pause_background_label: &'static str,
     pub language: &'static str,
     pub language_hint: &'static str,
+    pub animations: &'static str,
+    pub animations_hint: &'static str,
+    pub motion_full: &'static str,
+    pub motion_reduced: &'static str,
+    pub motion_performance: &'static str,
     pub done: &'static str,
 
     // Errors
@@ -255,6 +260,11 @@ pub static ENGLISH: Strings = Strings {
     pause_background_label: "Pause the background when y2e is not in front",
     language: "Language",
     language_hint: "The language of the interface.",
+    animations: "Animations",
+    animations_hint: "Reduced: calmer. Performance: no blur, no glow.",
+    motion_full: "Full",
+    motion_reduced: "Reduced",
+    motion_performance: "Performance",
     done: "Done",
 
     err_generic: "Something went wrong.",
@@ -364,6 +374,11 @@ pub static FRENCH: Strings = Strings {
     pause_background_label: "Figer l’arrière-plan quand y2e n’est pas au premier plan",
     language: "Langue",
     language_hint: "La langue de l’interface.",
+    animations: "Animations",
+    animations_hint: "Réduites : plus calme. Performance : sans flou.",
+    motion_full: "Complètes",
+    motion_reduced: "Réduites",
+    motion_performance: "Performance",
     done: "Terminé",
 
     err_generic: "Une erreur s’est produite.",

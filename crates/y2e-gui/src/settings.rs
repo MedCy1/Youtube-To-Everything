@@ -5,6 +5,30 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use y2e_core::DownloadPreset;
 
+/// How much the interface moves, and how much it asks of the graphics card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum Motion {
+    #[default]
+    Full,
+    /// No drifting background and only short fades, as the system's own
+    /// "reduce motion" asks.
+    Reduced,
+    /// Reduced, and without the blur and glow behind the glass: for older computers.
+    Performance,
+}
+
+impl Motion {
+    /// Nothing moves on its own, and travel is replaced by short fades.
+    pub fn is_calm(self) -> bool {
+        self != Motion::Full
+    }
+
+    /// The effects that cost the most are left out.
+    pub fn is_light(self) -> bool {
+        self == Motion::Performance
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Settings {
@@ -16,6 +40,8 @@ pub struct Settings {
     pub pause_when_unfocused: bool,
     /// The language of the interface. The system's, when unset.
     pub language: Option<Lang>,
+    /// How much the interface moves.
+    pub motion: Motion,
 }
 
 /// `~/.config/y2e/settings.json` on Linux, the matching folder elsewhere.
@@ -85,6 +111,7 @@ mod tests {
             default_preset: DownloadPreset::GifMeme,
             pause_when_unfocused: true,
             language: Some(Lang::French),
+            motion: Motion::Performance,
         };
         saved.write(&path).unwrap();
         assert_eq!(Settings::read(&path), saved);
@@ -125,6 +152,7 @@ mod tests {
         let read = Settings::read(&path);
         assert!(read.pause_when_unfocused);
         assert_eq!(read.default_preset, DownloadPreset::MaxQuality);
+        assert_eq!(read.motion, Motion::Full);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

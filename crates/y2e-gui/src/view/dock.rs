@@ -336,8 +336,7 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .padding(22.0)
         .gap(20.0)
         .radius(28.0)
-        .backdrop_blur(28.0)
-        .fill(p.glass.alpha(0.5))
+        .glass(28.0, p.glass, 0.5)
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
         .child(timeline(s, p, k))
@@ -397,12 +396,15 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                             el().on_hover_change(|s: &mut State, inside, _| {
                                 s.export_hover = inside
                             })
-                            .child(gfx::glow(
-                                s.accent_hue,
-                                if s.is_downloading { 0.1 } else { 0.22 },
-                                7.0,
-                                s.export_hover || s.is_downloading,
-                            ))
+                            .children((!s.settings.motion.is_light()).then(|| {
+                                gfx::glow(
+                                    s.accent_hue,
+                                    if s.is_downloading { 0.1 } else { 0.22 },
+                                    7.0,
+                                    !s.settings.motion.is_calm()
+                                        && (s.export_hover || s.is_downloading),
+                                )
+                            }))
                             .child(export_button(s, p, k))
                             .child(completion_ring(s, p)),
                         ),

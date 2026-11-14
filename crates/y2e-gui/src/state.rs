@@ -129,6 +129,11 @@ impl State {
         self.settings.save();
     }
 
+    pub fn set_motion(&mut self, motion: crate::settings::Motion) {
+        self.settings.motion = motion;
+        self.settings.save();
+    }
+
     pub fn set_pause_when_unfocused(&mut self, on: bool) {
         self.settings.pause_when_unfocused = on;
         self.settings.save();

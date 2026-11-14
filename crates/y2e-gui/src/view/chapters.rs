@@ -121,8 +121,7 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .py(24.0)
         .gap(16.0)
         .radius(24.0)
-        .backdrop_blur(28.0)
-        .fill(p.glass.alpha(super::settings::CARD_OPACITY))
+        .glass(28.0, p.glass, super::settings::CARD_OPACITY)
         .border(1.0, p.text.alpha(0.12))
         .modal_tx(true, |s: &mut State, tx| {
             tx.instant();

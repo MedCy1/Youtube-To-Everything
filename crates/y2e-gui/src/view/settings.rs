@@ -4,6 +4,7 @@ use rune::{col, el, row, text, El, FileDialogOptions, Tx};
 use y2e_core::DownloadPreset;
 
 use crate::i18n::{t, Lang};
+use crate::settings::Motion;
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -23,8 +24,7 @@ pub(super) fn settings_button(p: &Palette) -> El {
         .h(34.0)
         .px(16.0)
         .radius(17.0)
-        .backdrop_blur(12.0)
-        .fill(p.glass.alpha(0.55))
+        .glass(12.0, p.glass, 0.55)
         .center()
         .press_scale(0.96)
         .role("button")
@@ -101,8 +101,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .py(24.0)
         .gap(22.0)
         .radius(24.0)
-        .backdrop_blur(28.0)
-        .fill(p.glass.alpha(CARD_OPACITY))
+        .glass(28.0, p.glass, CARD_OPACITY)
         .border(1.0, p.text.alpha(0.12))
         .child(text(t().settings).font(display(26.0, -0.6)).color(p.text))
         .child(setting_row(
@@ -127,6 +126,12 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
             t().language,
             t().language_hint.into(),
             languages(s, p),
+            p,
+        ))
+        .child(setting_row(
+            t().animations,
+            t().animations_hint.into(),
+            motions(s, p),
             p,
         ));
     card = card.modal_tx(true, |s: &mut State, tx| {
@@ -246,6 +251,37 @@ fn languages(s: &State, p: &Palette) -> El {
         .gap(8.0)
         .child(chip(Lang::English, "English"))
         .child(chip(Lang::French, "Français"))
+}
+
+/// How much the interface moves.
+fn motions(s: &State, p: &Palette) -> El {
+    let chip = |motion: Motion, name: &'static str| {
+        let on = s.settings.motion == motion;
+        el().key(format!("motion-{name}"))
+            .h(34.0)
+            .px(14.0)
+            .radius(17.0)
+            .fill(if on { p.text } else { p.chip })
+            .center()
+            .press_scale(0.96)
+            .role("button")
+            .label(name)
+            .checked(on)
+            .focusable(true)
+            .focus_ring(2.0, 2.0, p.text)
+            .child(
+                text(name)
+                    .font(face(14.0, if on { 600 } else { 500 }))
+                    .color(if on { p.ink } else { p.text }),
+            )
+            .on_press(move |s: &mut State| s.set_motion(motion))
+    };
+    row()
+        .gap(8.0)
+        .flex_wrap()
+        .child(chip(Motion::Full, t().motion_full))
+        .child(chip(Motion::Reduced, t().motion_reduced))
+        .child(chip(Motion::Performance, t().motion_performance))
 }
 
 /// An on and off switch: a knob in a pill.
