@@ -61,8 +61,22 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         .child(grip(p, true))
         .child(grip(p, false));
 
+    let described = if s.enable_snipper {
+        format!(
+            "Clip from {} to {}.",
+            format_time_seconds(s.start_time_secs),
+            format_time_seconds(s.end_time_secs)
+        )
+    } else {
+        format!("Whole video, {}.", format_time_seconds(s.duration()))
+    };
     let track = el()
         .key("timeline")
+        .role("group")
+        .label("Clip range")
+        .description(format!(
+            "{described} The arrow keys move the end of the clip, Shift with an arrow moves the start, Home selects the whole video."
+        ))
         .w_full()
         .h(64.0)
         .child(bars)

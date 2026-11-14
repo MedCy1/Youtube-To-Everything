@@ -1,7 +1,7 @@
 //! The landing view: logo, URL field, hero and the card for an unreadable link.
 
 use rune::tok::motion;
-use rune::{col, el, row, text, text_input, El, LoopSpec, Transition};
+use rune::{col, el, row, text, text_input, El, LiveRegion, LoopSpec, Transition};
 
 use crate::report::{explain, missing_tools, updates, Report};
 use crate::state::State;
@@ -144,6 +144,7 @@ fn notice_card(key: &str, badge: &str, tint: Color, report: &Report, p: &Palette
     }
     row()
         .key(key.to_string())
+        .live_region(LiveRegion::Polite)
         .transition(Transition::offset(0.0, 16.0).combined(Transition::opacity()))
         .w_full()
         .max_w(680.0)

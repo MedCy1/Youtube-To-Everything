@@ -251,19 +251,27 @@ impl State {
         self.enable_snipper = true;
     }
 
-    /// Opens the folder holding the last export in the system file manager.
+    /// Shows the last export in the system file manager: selected in its
+    /// folder on macOS and Windows, the folder itself on Linux.
     pub fn reveal_download(&self) {
-        let Some(folder) = self.downloaded_file.as_ref().and_then(|path| path.parent()) else {
+        let Some(file) = self.downloaded_file.as_ref() else {
             return;
         };
-        let opener = if cfg!(target_os = "macos") {
-            "open"
+        let mut cmd = if cfg!(target_os = "macos") {
+            let mut cmd = std::process::Command::new("open");
+            cmd.arg("-R").arg(file);
+            cmd
         } else if cfg!(target_os = "windows") {
-            "explorer"
+            let mut cmd = std::process::Command::new("explorer");
+            cmd.arg(format!("/select,{}", file.display()));
+            cmd
         } else {
-            "xdg-open"
+            let Some(folder) = file.parent() else { return };
+            let mut cmd = std::process::Command::new("xdg-open");
+            cmd.arg(folder);
+            cmd
         };
-        let _ = std::process::Command::new(opener).arg(folder).spawn();
+        let _ = cmd.spawn();
     }
 
     /// Moves one end of the cut by `delta` seconds (keyboard control).

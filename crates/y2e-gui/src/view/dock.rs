@@ -1,7 +1,7 @@
 //! The glass dock: presets, size hints, the export button and its notices.
 
 use rune::tok::motion;
-use rune::{col, el, row, spacer, text, Beat, Color, El, Sequence, Transition};
+use rune::{col, el, row, spacer, text, Beat, Color, El, LiveRegion, Sequence, Transition};
 use rune_kit::{Kit, RollingText};
 use y2e_core::{format_time_seconds, DownloadPreset};
 
@@ -75,8 +75,17 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
         .fill(if s.is_downloading { p.chip } else { p.accent })
         .motion(motion::SNAPPY)
         .press_scale(0.97)
-        .role("button")
-        .label("Export")
+        .role(if s.is_downloading {
+            "progressbar"
+        } else {
+            "button"
+        })
+        .label(if s.is_downloading {
+            "Export progress"
+        } else {
+            "Export"
+        })
+        .shortcut_hint("Enter")
         .focusable(!s.is_downloading)
         .focus_ring(2.0, 2.0, p.text)
         .on_press(|s: &mut State| {
@@ -94,6 +103,7 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
 
     if s.is_downloading {
         button
+            .range_value(progress as f64, 0.0, 100.0)
             .child(
                 el().pin(Some(0.0), None, Some(0.0), Some(0.0))
                     .h(4.0)
@@ -155,6 +165,7 @@ pub(super) fn notice(
 ) -> El {
     let mut banner = row()
         .key(key)
+        .live_region(LiveRegion::Polite)
         .transition(Transition::offset(0.0, 24.0).combined(Transition::opacity()))
         .w_full()
         .px(18.0)
