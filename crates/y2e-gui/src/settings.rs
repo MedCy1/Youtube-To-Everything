@@ -47,10 +47,17 @@ impl Settings {
         std::fs::rename(partial, path)
     }
 
+    /// The chosen folder, else Downloads, else the home folder, and the
+    /// current folder only when the system names none of them.
     pub fn export_dir(&self) -> PathBuf {
+        self.pick_dir(dirs::download_dir(), dirs::home_dir())
+    }
+
+    fn pick_dir(&self, downloads: Option<PathBuf>, home: Option<PathBuf>) -> PathBuf {
         self.output_dir
             .clone()
-            .or_else(dirs::download_dir)
+            .or(downloads)
+            .or(home)
             .unwrap_or_else(|| PathBuf::from("./output"))
     }
 }
@@ -74,6 +81,20 @@ mod tests {
         saved.write(&path).unwrap();
         assert_eq!(Settings::read(&path), saved);
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn the_export_folder_falls_back_step_by_step() {
+        let mut settings = Settings::default();
+        let (downloads, home) = (Some(PathBuf::from("/d")), Some(PathBuf::from("/h")));
+        assert_eq!(
+            settings.pick_dir(downloads.clone(), home.clone()),
+            PathBuf::from("/d")
+        );
+        assert_eq!(settings.pick_dir(None, home), PathBuf::from("/h"));
+        assert_eq!(settings.pick_dir(None, None), PathBuf::from("./output"));
+        settings.output_dir = Some(PathBuf::from("/chosen"));
+        assert_eq!(settings.pick_dir(downloads, None), PathBuf::from("/chosen"));
     }
 
     #[test]
