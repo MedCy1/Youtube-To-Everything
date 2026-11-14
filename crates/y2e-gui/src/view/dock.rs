@@ -349,10 +349,13 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .glass(28.0, p.glass, 0.5)
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
-        .child(timeline(s, p, k))
+        // Keyed, so the advice appearing between them does not make the next one
+        // look new: it would enter again from below.
+        .child(timeline(s, p, k).key("dock-timeline"))
         .children(gif_advice(s, p))
         .child(
             row()
+                .key("dock-actions")
                 .w_full()
                 .flex_wrap()
                 .gap(12.0)
