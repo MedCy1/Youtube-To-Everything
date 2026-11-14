@@ -45,6 +45,9 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
     let input = text_input(&s.url_input, face(if big { 17.0 } else { 15.0 }, 500))
         .key("url_input")
         .grow(1.0)
+        // Without this the field is as wide as what is typed in it, and pushes the
+        // button out of the bar.
+        .min_w(0.0)
         .single_line()
         .label(t().link_label)
         .disabled(locked)
