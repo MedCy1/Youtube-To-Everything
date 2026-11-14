@@ -86,7 +86,7 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .center_y()
         .gap(12.0)
         .radius(height / 2.0)
-        .frosted(18.0)
+        .backdrop_blur(18.0)
         .fill(p.glass.alpha(0.5))
         .border(
             1.0,
@@ -155,7 +155,7 @@ fn notice_card(key: &str, badge: &str, tint: Color, report: &Report, p: &Palette
         .gap(16.0)
         .center_y()
         .radius(20.0)
-        .frosted(18.0)
+        .backdrop_blur(18.0)
         .fill(p.glass.alpha(0.6))
         .border(1.0, tint.alpha(0.5))
         .child(

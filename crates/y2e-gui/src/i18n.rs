@@ -63,8 +63,6 @@ pub struct Strings {
     pub clipboard_link: &'static str,
     pub fetching_details: &'static str,
     pub unknown_author: &'static str,
-    pub video_loaded: fn(&str) -> String,
-    pub video_loaded_plain: &'static str,
 
     // Tools
     pub install_failed: &'static str,
@@ -177,8 +175,6 @@ pub static ENGLISH: Strings = Strings {
     clipboard_link: "Link found on the clipboard. Press Enter to load it.",
     fetching_details: "Fetching video details",
     unknown_author: "Unknown author",
-    video_loaded: |length| format!("Video loaded · {length}"),
-    video_loaded_plain: "Video loaded",
 
     install_failed: "Installation failed.",
     install_auto: "Install automatically",
@@ -285,8 +281,6 @@ pub static FRENCH: Strings = Strings {
     clipboard_link: "Lien trouvé dans le presse-papiers. Appuyez sur Entrée pour le charger.",
     fetching_details: "Récupération des informations de la vidéo",
     unknown_author: "Auteur inconnu",
-    video_loaded: |length| format!("Vidéo chargée · {length}"),
-    video_loaded_plain: "Vidéo chargée",
 
     install_failed: "L’installation a échoué.",
     install_auto: "Installer automatiquement",

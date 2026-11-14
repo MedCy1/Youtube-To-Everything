@@ -24,8 +24,8 @@ use studio::{title_block, top_bar};
 use timeline::timeline;
 
 /// Set while a card covers the screen. Rune blurs at most four elements in a
-/// frame, in drawing order, so the card (drawn last) would lose its blur to the
-/// ones under it, which the scrim hides anyway.
+/// frame, in drawing order. The studio's three (URL field, settings button, dock)
+/// plus the card fill them, so a banner's blur is skipped while a card is open.
 static CARD_OPEN: AtomicBool = AtomicBool::new(false);
 
 /// `backdrop_blur`, skipped while a card is open.

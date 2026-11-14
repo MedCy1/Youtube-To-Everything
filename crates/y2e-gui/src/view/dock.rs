@@ -297,7 +297,7 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
         .padding(22.0)
         .gap(20.0)
         .radius(28.0)
-        .frosted(28.0)
+        .backdrop_blur(28.0)
         .fill(p.glass.alpha(0.5))
         .border(1.0, p.glass_line)
         .shadow(18.0, 60.0, Color::BLACK.alpha(0.45))
