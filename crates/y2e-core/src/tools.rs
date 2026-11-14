@@ -336,9 +336,21 @@ async fn sha256(file: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     let file = file.to_path_buf();
     tokio::task::spawn_blocking(move || {
-        let mut hasher = Sha256::new();
-        std::io::copy(&mut std::fs::File::open(file)?, &mut hasher)?;
-        Ok(format!("{:x}", hasher.finalize()))
+        use std::io::Read;
+        let mut input = std::fs::File::open(file)?;
+        let (mut hasher, mut buffer) = (Sha256::new(), vec![0u8; 64 * 1024]);
+        loop {
+            let n = input.read(&mut buffer)?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buffer[..n]);
+        }
+        Ok(hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect())
     })
     .await
     .map_err(|err| failure(err.to_string()))?

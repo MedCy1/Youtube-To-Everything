@@ -14,7 +14,7 @@ y2e-core = { path = "../y2e-core" }
 tokio = { workspace = true, features = ["rt-multi-thread", "process"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "webp"] }
 wgpu = { version = "30", default-features = false }
-dirs = "6"
+dirs = "7"
 
 rune.workspace = true
 rune-kit.workspace = true
