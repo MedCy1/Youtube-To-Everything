@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.3.0 (2026-11-14)
+
+
+### Features
+
+- Tell the user when a newer release of the app exists
+- Add a settings window
+
+### Bug fixes
+
+- gui: Fall back to the home folder when the system has no Downloads folder
+
+### Build and CI
+
+- Give the workflows read-only access unless a job needs more
+- Move the GitHub Actions to their Node 24 releases
+- Update dirs to 7 and sha2 to 0.11
+
+### Documentation
+
+- Add a security policy and complete the README, and add repository housekeeping files
 ## v0.2.0 (2026-11-14)
 
 
