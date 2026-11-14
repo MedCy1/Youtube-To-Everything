@@ -27,6 +27,7 @@ fn main() {
     if y2e_core::tools::missing().is_empty() {
         let _ = action_tx.send(GuiAction::CheckUpdates);
     }
+    let _ = action_tx.send(GuiAction::CheckAppUpdate);
     let _ = state::ACTION_TX.set(action_tx);
 
     let spec = AppSpec {
@@ -95,6 +96,18 @@ fn main() {
                                     }
                                     s.updates = updates;
                                 });
+                            });
+                        }
+                        GuiAction::CheckAppUpdate => {
+                            tokio::spawn(async move {
+                                if let Some(update) =
+                                    y2e_core::app_update::check(env!("CARGO_PKG_VERSION")).await
+                                {
+                                    handle.update(move |s, tx| {
+                                        tx.animated();
+                                        s.app_update = Some(update);
+                                    });
+                                }
                             });
                         }
                         GuiAction::InstallTools(tools) => {

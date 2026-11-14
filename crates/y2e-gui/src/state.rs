@@ -15,6 +15,7 @@ pub enum GuiAction {
     InspectMetadata(String),
     InstallTools(Vec<&'static str>),
     CheckUpdates,
+    CheckAppUpdate,
     CancelDownload,
     StartDownload {
         url: String,
@@ -63,6 +64,9 @@ pub struct State {
     pub updates: Vec<y2e_core::tools::Update>,
     /// The user chose to carry on without updating, for this session.
     pub updates_dismissed: bool,
+    /// A newer release of the app itself, once GitHub has said so.
+    pub app_update: Option<y2e_core::app_update::AppUpdate>,
+    pub app_update_dismissed: bool,
     /// Number of finished exports, so each completion replays its celebration.
     pub completed: u32,
     pub url_input: TextEdit,
@@ -101,6 +105,8 @@ impl Default for State {
             install_error: None,
             updates: Vec::new(),
             updates_dismissed: false,
+            app_update: None,
+            app_update_dismissed: false,
             completed: 0,
             url_input,
             metadata: None,
@@ -266,27 +272,31 @@ impl State {
         self.enable_snipper = true;
     }
 
+    /// Opens the page of the newer release in the browser.
+    pub fn open_app_update(&mut self) {
+        if let Some(update) = &self.app_update {
+            open_with_system(update.url.as_ref());
+        }
+        self.app_update_dismissed = true;
+    }
+
     /// Shows the last export in the system file manager: selected in its
     /// folder on macOS and Windows, the folder itself on Linux.
     pub fn reveal_download(&self) {
         let Some(file) = self.downloaded_file.as_ref() else {
             return;
         };
-        let mut cmd = if cfg!(target_os = "macos") {
-            let mut cmd = std::process::Command::new("open");
-            cmd.arg("-R").arg(file);
-            cmd
+        if cfg!(target_os = "macos") {
+            let _ = std::process::Command::new("open")
+                .arg("-R")
+                .arg(file)
+                .spawn();
         } else if cfg!(target_os = "windows") {
-            let mut cmd = std::process::Command::new("explorer");
-            cmd.arg(format!("/select,{}", file.display()));
-            cmd
-        } else {
-            let Some(folder) = file.parent() else { return };
-            let mut cmd = std::process::Command::new("xdg-open");
-            cmd.arg(folder);
-            cmd
-        };
-        let _ = cmd.spawn();
+            let select = format!("/select,{}", file.display());
+            let _ = std::process::Command::new("explorer").arg(select).spawn();
+        } else if let Some(folder) = file.parent() {
+            open_with_system(folder.as_os_str());
+        }
     }
 
     /// Moves one end of the cut by `delta` seconds (keyboard control).
@@ -466,6 +476,18 @@ impl State {
             }
         }
     }
+}
+
+/// Opens a folder or a web address with whatever the system uses for it.
+fn open_with_system(target: &std::ffi::OsStr) {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let _ = std::process::Command::new(opener).arg(target).spawn();
 }
 
 /// One end of `range` moved by `delta` seconds, kept inside `0..=total` and

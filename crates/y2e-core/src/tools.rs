@@ -321,7 +321,7 @@ async fn fetch(url: &str, to: &Path, mut on_percent: impl FnMut(u32)) -> Result<
     .await
 }
 
-async fn fetch_text(url: &str) -> Result<String> {
+pub(crate) async fn fetch_text(url: &str) -> Result<String> {
     let out = background("curl")
         .args(["-fsSL", "--retry", "2", url])
         .output()

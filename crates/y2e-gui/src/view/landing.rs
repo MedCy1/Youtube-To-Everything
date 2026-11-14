@@ -262,6 +262,29 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         } else {
             dismiss.default_button()
         }));
+    } else if let Some(update) = s.app_update.as_ref().filter(|_| !s.app_update_dismissed) {
+        let report = Report {
+            headline: "A new version of y2e is available.",
+            cause: Some(format!(
+                "Version {} is out, you have {}.",
+                update.version,
+                env!("CARGO_PKG_VERSION")
+            )),
+        };
+        stack = stack.child(notice_card("hero-app-update", "↑", p.accent, &report, p));
+        stack = stack.child(
+            row()
+                .gap(12.0)
+                .child(
+                    solid_button("See what's new", "open-app-update", true, false, p)
+                        .default_button()
+                        .on_press(|s: &mut State| s.open_app_update()),
+                )
+                .child(
+                    solid_button("Later", "dismiss-app-update", true, true, p)
+                        .on_press(|s: &mut State| s.app_update_dismissed = true),
+                ),
+        );
     } else {
         stack = stack.child(if s.clipboard_link {
             text("Link found on the clipboard. Press Enter to load it.")
