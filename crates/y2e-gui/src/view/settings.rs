@@ -10,9 +10,11 @@ use crate::theme::Palette;
 use super::landing::solid_button;
 use super::*;
 
-/// How opaque the card is. The blur behind it takes a moment to appear the
-/// first time, and until then whatever is behind must not show through.
-pub(super) const CARD_OPACITY: f32 = 0.97;
+/// How opaque the glass cards are.
+pub(super) const CARD_OPACITY: f32 = 0.88;
+
+// Opening and closing are instant: while a card fades, Rune draws it as one
+// isolated layer, and a backdrop blur in a layer has nothing behind it to blur.
 
 /// The button that opens it, in the top right corner of every screen.
 pub(super) fn settings_button(p: &Palette) -> El {
@@ -30,7 +32,10 @@ pub(super) fn settings_button(p: &Palette) -> El {
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
         .child(text(t().settings).font(face(14.0, 600)).color(p.text))
-        .on_press(|s: &mut State| s.settings_open = true)
+        .on_press_tx(|s: &mut State, tx| {
+            tx.instant();
+            s.settings_open = true;
+        })
 }
 
 /// The scrim and the card, when settings are open.
@@ -99,7 +104,6 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .backdrop_blur(28.0)
         .fill(p.glass.alpha(CARD_OPACITY))
         .border(1.0, p.text.alpha(0.12))
-        .modal(true, |s: &mut State| s.settings_open = false)
         .child(text(t().settings).font(display(26.0, -0.6)).color(p.text))
         .child(setting_row(
             t().export_folder,
@@ -125,6 +129,10 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
             languages(s, p),
             p,
         ));
+    card = card.modal_tx(true, |s: &mut State, tx| {
+        tx.instant();
+        s.settings_open = false;
+    });
     if let Some(error) = &s.settings_error {
         card = card.child(
             text(error.clone())
@@ -137,7 +145,10 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         row().w_full().justify_end().child(
             solid_button(t().done, "close-settings", false, false, p)
                 .default_button()
-                .on_press(|s: &mut State| s.settings_open = false),
+                .on_press_tx(|s: &mut State, tx| {
+                    tx.instant();
+                    s.settings_open = false;
+                }),
         ),
     );
 
