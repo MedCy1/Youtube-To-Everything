@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 
@@ -8,7 +8,7 @@ use crate::error::{Result, Y2eError};
 use crate::events::CoreEvent;
 use crate::metadata::{TimeRange, VideoMetadata};
 use crate::presets::DownloadPreset;
-use crate::progress::parse_progress_line;
+use crate::progress::{parse_ffmpeg_stats, parse_progress_line};
 use crate::tools;
 
 #[derive(Debug, Clone)]
@@ -68,7 +68,10 @@ impl Engine {
             .arg(&output_template_str);
 
         if let Some(range) = &options.time_range {
-            cmd.arg("--download-sections")
+            // `--print` below makes yt-dlp quiet, and with it ffmpeg, which is
+            // the one that reports how far a cut has got.
+            cmd.arg("--no-quiet")
+                .arg("--download-sections")
                 .arg(range.to_yt_dlp_section_arg())
                 .arg("--force-keyframes-at-cuts");
         }
@@ -112,6 +115,8 @@ impl Engine {
             .arg("after_move:FILEPATH:%(filepath)s");
 
         cmd.arg(&options.url);
+        // ffmpeg, started by yt-dlp, would otherwise read our terminal.
+        cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
@@ -119,11 +124,35 @@ impl Engine {
         let stdout = child.stdout.take().expect("Failed to open child stdout");
         let mut reader = BufReader::new(stdout).lines();
 
-        // Drain stderr so a chatty yt-dlp can never fill the pipe, and keep it for errors.
-        let mut stderr = child.stderr.take().expect("Failed to open child stderr");
+        // Read stderr as it comes, so a chatty yt-dlp can never fill the pipe. ffmpeg
+        // reports a cut there, and ends each of its progress lines with `\r`, not a
+        // newline. What is not progress is kept for the error message.
+        let mut stderr = BufReader::new(child.stderr.take().expect("Failed to open child stderr"));
+        let total = options
+            .time_range
+            .map_or(0, |range| range.duration_seconds());
+        let progress_tx = event_tx.clone();
         let stderr_text = tokio::spawn(async move {
             let mut text = Vec::new();
-            let _ = stderr.read_to_end(&mut text).await;
+            let mut chunk = Vec::new();
+            // A video and its audio are cut one after the other; the bar must not go back.
+            let mut furthest = 0.0_f32;
+            while matches!(stderr.read_until(b'\r', &mut chunk).await, Ok(n) if n > 0) {
+                for line in String::from_utf8_lossy(&chunk).split('\n') {
+                    match parse_ffmpeg_stats(line, total) {
+                        Some(mut update) if total > 0 => {
+                            furthest = furthest.max(update.percent);
+                            update.percent = furthest;
+                            let _ = progress_tx.send(CoreEvent::Progress(update)).await;
+                        }
+                        _ => {
+                            text.extend_from_slice(line.as_bytes());
+                            text.push(b'\n');
+                        }
+                    }
+                }
+                chunk.clear();
+            }
             text
         });
 
