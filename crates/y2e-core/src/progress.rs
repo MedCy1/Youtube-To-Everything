@@ -41,6 +41,25 @@ pub fn parse_progress_line(line: &str) -> Option<ProgressUpdate> {
     })
 }
 
+/// How far ffmpeg has got: `done` seconds of `total`, at `speed` (such as `1.54x`).
+/// Only the end of the export says it is done, so this never reaches 100.
+pub fn ffmpeg_progress(done: f32, total: u64, speed: &str, raw: &str) -> ProgressUpdate {
+    let total = total.max(1) as f32;
+    let eta = match speed.strip_suffix('x').and_then(|x| x.parse::<f32>().ok()) {
+        Some(x) if x > 0.0 => {
+            let left = ((total - done) / x).max(0.0) as u64;
+            format!("{:02}:{:02}", left / 60, left % 60)
+        }
+        _ => "N/A".to_string(),
+    };
+    ProgressUpdate {
+        percent: (done / total * 100.0).min(99.0),
+        speed: speed.to_string(),
+        eta,
+        raw: raw.trim().to_string(),
+    }
+}
+
 /// Reads ffmpeg's own stats line, such as `size=256KiB time=00:00:30.03 speed=1.54x`.
 /// yt-dlp hands a cut to ffmpeg and prints nothing itself until it is done.
 /// `total`: the length of the cut, in seconds.
@@ -51,22 +70,12 @@ pub fn parse_ffmpeg_stats(line: &str, total: u64) -> Option<ProgressUpdate> {
     let minutes: f32 = clock.next()?.parse().ok()?;
     let seconds: f32 = clock.next()?.parse().ok()?;
     let done = hours * 3600.0 + minutes * 60.0 + seconds;
-    let total = total.max(1) as f32;
-    let speed = field("speed=").unwrap_or("N/A");
-    let eta = match speed.strip_suffix('x').and_then(|x| x.parse::<f32>().ok()) {
-        Some(x) if x > 0.0 => {
-            let left = ((total - done) / x).max(0.0) as u64;
-            format!("{:02}:{:02}", left / 60, left % 60)
-        }
-        _ => "N/A".to_string(),
-    };
-    Some(ProgressUpdate {
-        // Only the end of the export says it is done.
-        percent: (done / total * 100.0).min(99.0),
-        speed: speed.to_string(),
-        eta,
-        raw: line.trim().to_string(),
-    })
+    Some(ffmpeg_progress(
+        done,
+        total,
+        field("speed=").unwrap_or("N/A"),
+        line,
+    ))
 }
 
 #[cfg(test)]

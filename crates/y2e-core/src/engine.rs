@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc::Sender;
 
@@ -8,7 +8,7 @@ use crate::error::{Result, Y2eError};
 use crate::events::CoreEvent;
 use crate::metadata::{TimeRange, VideoMetadata};
 use crate::presets::DownloadPreset;
-use crate::progress::{parse_ffmpeg_stats, parse_progress_line};
+use crate::progress::{ffmpeg_progress, parse_ffmpeg_stats, parse_progress_line};
 use crate::tools;
 
 #[derive(Debug, Clone)]
@@ -132,6 +132,7 @@ impl Engine {
             .time_range
             .map_or(0, |range| range.duration_seconds());
         let progress_tx = event_tx.clone();
+        let share = download_share(options.preset);
         let stderr_text = tokio::spawn(async move {
             let mut text = Vec::new();
             let mut chunk = Vec::new();
@@ -141,7 +142,7 @@ impl Engine {
                 for line in String::from_utf8_lossy(&chunk).split('\n') {
                     match parse_ffmpeg_stats(line, total) {
                         Some(mut update) if total > 0 => {
-                            furthest = furthest.max(update.percent);
+                            furthest = furthest.max(update.percent * share / 100.0);
                             update.percent = furthest;
                             let _ = progress_tx.send(CoreEvent::Progress(update)).await;
                         }
@@ -159,7 +160,8 @@ impl Engine {
         let mut last_destination: Option<PathBuf> = None;
 
         while let Ok(Some(line)) = reader.next_line().await {
-            if let Some(progress) = parse_progress_line(&line) {
+            if let Some(mut progress) = parse_progress_line(&line) {
+                progress.percent *= share / 100.0;
                 let _ = event_tx.send(CoreEvent::Progress(progress)).await;
             } else if let Some(path) = line.strip_prefix("FILEPATH:") {
                 last_destination = Some(PathBuf::from(path.trim()));
@@ -206,7 +208,8 @@ impl Engine {
                     ))
                     .await;
                 let discord_output =
-                    Self::compress_for_discord(&downloaded_file, options.time_range).await?;
+                    Self::compress_for_discord(&downloaded_file, options.time_range, &event_tx)
+                        .await?;
                 let _ = tokio::fs::remove_file(&downloaded_file).await;
                 discord_output
             }
@@ -214,7 +217,7 @@ impl Engine {
                 let _ = event_tx
                     .send(CoreEvent::StatusChanged("Creating the GIF…".to_string()))
                     .await;
-                let gif_output = Self::convert_to_gif(&downloaded_file).await?;
+                let gif_output = Self::convert_to_gif(&downloaded_file, &event_tx).await?;
                 let _ = tokio::fs::remove_file(&downloaded_file).await;
                 gif_output
             }
@@ -232,6 +235,7 @@ impl Engine {
     async fn compress_for_discord(
         input_path: &Path,
         time_range: Option<TimeRange>,
+        event_tx: &Sender<CoreEvent>,
     ) -> Result<PathBuf> {
         let output_path = input_path.with_extension("discord.mp4");
         // The real length of the file: with no cut selected the whole video is encoded.
@@ -242,7 +246,7 @@ impl Engine {
         let video_bitrate = DownloadPreset::calculate_discord_video_bitrate_kbps(duration);
 
         let mut cmd = tools::command("ffmpeg");
-        cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+        cmd.args(REPORTING)
             .arg(input_path)
             .args(["-c:v", "libx264", "-b:v"])
             .arg(format!("{video_bitrate}k"))
@@ -252,25 +256,89 @@ impl Engine {
             .arg(format!("{}k", video_bitrate * 2))
             .args(["-c:a", "aac", "-b:a", "96k"])
             .arg(&output_path);
-        run_quiet(cmd, "ffmpeg").await?;
+        run_reporting(cmd, duration, event_tx).await?;
 
         Ok(output_path)
     }
 
-    async fn convert_to_gif(input_path: &Path) -> Result<PathBuf> {
+    async fn convert_to_gif(input_path: &Path, event_tx: &Sender<CoreEvent>) -> Result<PathBuf> {
         let output_path = input_path.with_extension("gif");
 
         let filter =
             "fps=15,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
         let mut cmd = tools::command("ffmpeg");
-        cmd.args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+        cmd.args(REPORTING)
             .arg(input_path)
             .args(["-vf", filter])
             .arg(&output_path);
-        run_quiet(cmd, "ffmpeg").await?;
+        let duration = probe_duration(input_path).await.unwrap_or(0);
+        run_reporting(cmd, duration, event_tx).await?;
 
         Ok(output_path)
     }
+}
+
+/// The share of the bar, in percent, that the download takes. Discord and GIF
+/// exports are encoded afterwards, and fill what is left.
+fn download_share(preset: DownloadPreset) -> f32 {
+    match preset {
+        DownloadPreset::Discord25Mb | DownloadPreset::GifMeme => 40.0,
+        _ => 100.0,
+    }
+}
+
+/// What ffmpeg gets before its input, to report its progress on stdout.
+const REPORTING: [&str; 8] = [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-progress",
+    "pipe:1",
+    "-nostats",
+    "-y",
+    "-i",
+];
+
+/// Runs ffmpeg, built with `REPORTING`, over a file `total` seconds long, and
+/// reports how far it has got in the last part of the bar.
+async fn run_reporting(mut cmd: Command, total: u64, event_tx: &Sender<CoreEvent>) -> Result<()> {
+    let mut child = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let mut lines =
+        BufReader::new(child.stdout.take().expect("Failed to open child stdout")).lines();
+    let mut stderr = child.stderr.take().expect("Failed to open child stderr");
+    let errors = tokio::spawn(async move {
+        let mut text = Vec::new();
+        let _ = stderr.read_to_end(&mut text).await;
+        text
+    });
+
+    let mut speed = String::from("N/A");
+    while let Ok(Some(line)) = lines.next_line().await {
+        if let Some(value) = line.strip_prefix("speed=") {
+            speed = value.trim().to_string();
+        } else if let Some(micros) = line
+            .strip_prefix("out_time_us=")
+            .and_then(|v| v.trim().parse::<f32>().ok())
+        {
+            let mut update = ffmpeg_progress(micros / 1e6, total, &speed, &line);
+            let from = download_share(DownloadPreset::Discord25Mb);
+            update.percent = from + update.percent * (100.0 - from) / 100.0;
+            let _ = event_tx.send(CoreEvent::Progress(update)).await;
+        }
+    }
+    let status = child.wait().await?;
+    if status.success() {
+        return Ok(());
+    }
+    Err(Y2eError::ProcessFailed {
+        command: "ffmpeg".to_string(),
+        code: status.code(),
+        stderr: tail(&errors.await.unwrap_or_default()),
+    })
 }
 
 /// Length of a media file in whole seconds, as `ffprobe` reports it.
@@ -315,7 +383,8 @@ pub(crate) async fn run_quiet(mut cmd: Command, name: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{probe_duration, run_quiet, tail, Path, Y2eError};
+    use super::{probe_duration, run_quiet, tail, Engine, Path, Y2eError};
+    use crate::events::CoreEvent;
     use crate::tools;
 
     #[test]
@@ -365,5 +434,43 @@ mod tests {
             Err(Y2eError::Io(_)) => {} // ffmpeg is not installed here
             other => panic!("expected a failure, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn encoding_for_discord_fills_the_end_of_the_bar() {
+        let file = std::env::temp_dir().join("y2e-report-test.mp4");
+        let mut cmd = tools::command("ffmpeg");
+        cmd.args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=320x240:d=3",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(&file);
+        if run_quiet(cmd, "ffmpeg").await.is_err() {
+            return; // ffmpeg is not installed here
+        }
+        let (tx, mut rx) = tokio::sync::mpsc::channel(256);
+        let out = Engine::compress_for_discord(&file, None, &tx)
+            .await
+            .unwrap();
+        drop(tx);
+        let mut seen = Vec::new();
+        while let Some(event) = rx.recv().await {
+            if let CoreEvent::Progress(update) = event {
+                seen.push(update.percent);
+            }
+        }
+        let _ = std::fs::remove_file(&file);
+        let _ = std::fs::remove_file(out);
+        assert!(!seen.is_empty(), "no progress was reported");
+        assert!(seen.iter().all(|p| (40.0..100.0).contains(p)), "{seen:?}");
+        assert!(seen.windows(2).all(|w| w[0] <= w[1]), "{seen:?}");
     }
 }
