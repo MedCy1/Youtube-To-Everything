@@ -126,6 +126,7 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .px(10.0)
                     .radius(13.0)
                     .fill(p.chip)
+                    .hover(hover_tint(p, false))
                     .center()
                     .press_scale(0.96)
                     .role("button")

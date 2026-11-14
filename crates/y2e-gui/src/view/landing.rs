@@ -22,6 +22,7 @@ pub(super) fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Pa
         .px(if big { 22.0 } else { 16.0 })
         .radius(if big { 22.0 } else { 17.0 })
         .fill(fill)
+        .hover(hover_tint(p, !busy))
         .motion(motion::SNAPPY)
         .press_scale(0.96)
         .role("button")

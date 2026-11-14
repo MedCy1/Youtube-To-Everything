@@ -26,6 +26,7 @@ pub(super) fn preset_chip(
         .px(18.0)
         .radius(14.0)
         .fill(if on { p.text } else { p.chip })
+        .hover(hover_tint(p, on))
         .motion(motion::SNAPPY)
         .press_scale(0.97)
         .role("button")
@@ -150,6 +151,11 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
         .radius(28.0)
         .clip_rounded(28.0)
         .fill(if s.is_downloading { p.chip } else { p.accent })
+        .hover(if s.is_downloading {
+            clear(p.chip)
+        } else {
+            Color::WHITE.alpha(0.16)
+        })
         .motion(motion::SNAPPY)
         .press_scale(0.97)
         .role(if s.is_downloading {
@@ -254,6 +260,7 @@ fn cancel_chip(p: &Palette) -> El {
         .px(16.0)
         .radius(17.0)
         .fill(p.chip)
+        .hover(hover_tint(p, false))
         .center()
         .press_scale(0.96)
         .role("button")
@@ -294,6 +301,7 @@ pub(super) fn gif_advice(s: &State, p: &Palette) -> Option<El> {
             .px(14.0)
             .radius(15.0)
             .fill(p.chip)
+            .hover(hover_tint(p, false))
             .press_scale(0.96)
             .role("button")
             .label(label.clone())

@@ -1,3 +1,4 @@
+use rune::tok::motion;
 use rune::{col, el, spacer, text, Color, Cx, El, SurfaceFit, TextStyle, Transition};
 use rune_kit::Kit;
 use std::f32::consts::PI;
@@ -54,6 +55,16 @@ impl Frosted for El {
         } else {
             self.backdrop_blur(sigma).fill(tint.alpha(alpha))
         }
+    }
+}
+
+/// The overlay a control shows under the pointer: darker on a light fill, lighter
+/// on a dark one.
+fn hover_tint(p: &Palette, light_fill: bool) -> Color {
+    if light_fill {
+        p.ink.alpha(0.10)
+    } else {
+        p.text.alpha(0.12)
     }
 }
 
@@ -159,6 +170,7 @@ pub fn app_view(s: &State, cx: &mut Cx<State>) -> El {
                         .px(14.0)
                         .radius(15.0)
                         .fill(p.chip)
+                        .hover(hover_tint(&p, false))
                         .press_scale(0.96)
                         .role("button")
                         .label(t().open_folder)
@@ -186,6 +198,8 @@ pub fn app_view(s: &State, cx: &mut Cx<State>) -> El {
     el().w_full()
         .h_full()
         .fill(p.bg)
+        // Everything that answers the pointer does so with the same spring.
+        .hover_motion_within(motion::SNAPPY, motion::SNAPPY)
         // A link copied elsewhere is offered as soon as the window is back in front.
         .on_window_focus(|s: &mut State, focused, tx| {
             s.focused = focused;
