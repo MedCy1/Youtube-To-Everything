@@ -1,5 +1,7 @@
 use rune::tok::motion;
-use rune::{col, el, spacer, text, Color, Cx, El, SurfaceFit, TextStyle, Transition};
+use rune::{
+    col, el, spacer, text, Beat, Color, Cx, El, Sequence, SurfaceFit, TextStyle, Transition,
+};
 use rune_kit::Kit;
 use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -95,16 +97,25 @@ fn clear(color: Color) -> Color {
 
 /// The backdrop of the whole window: the source artwork once it has arrived,
 /// otherwise a GPU mesh-gradient aurora in the interface's own hue.
+/// A slow push-in over the first seconds, then it holds.
+const PUSH_IN: &[Beat] = &[Beat::new(0.0).scale(1.0), Beat::new(40.0).scale(1.08)];
+
 fn scene(s: &State, p: &Palette) -> El {
     let mut stage = fill_parent().fill(p.bg).clip_rounded(0.0);
 
     match (&s.thumbnail, &s.metadata) {
         (Some(art), Some(_)) => {
-            stage = stage.child(
-                fill_parent()
-                    .pixels_fit(art, SurfaceFit::Fill)
-                    .transition(Transition::opacity()),
-            );
+            let artwork = fill_parent()
+                .key(format!("art-{}", s.metadata.as_ref().map_or("", |m| &m.id)))
+                .pixels_fit(art, SurfaceFit::Fill)
+                .transition(Transition::opacity());
+            // The artwork slowly pushes in, so the glass in front of it has something
+            // to float over. A still image is enough when motion is reduced.
+            stage = stage.child(if s.settings.motion.is_calm() {
+                artwork
+            } else {
+                artwork.sequence(Sequence::new(PUSH_IN))
+            });
         }
         _ => {
             stage = stage
