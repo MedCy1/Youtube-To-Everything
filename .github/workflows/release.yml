@@ -29,6 +29,9 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      # Signing the macOS app needs the secrets below; without them it is only ad-hoc signed.
+      HAVE_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -62,41 +65,73 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-about
+          tool: cargo-about${{ runner.os == 'Linux' && ',cargo-deb' || '' }}
 
       - name: Third-party licenses
         run: scripts/third-party.sh
 
-      - name: Package
+      - name: Import the Apple signing certificate
+        if: runner.os == 'macOS' && env.HAVE_APPLE_CERT == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          name="y2e-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          keychain="$RUNNER_TEMP/build.keychain"
+          password=$(uuidgen)
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" login.keychain
+          rm "$RUNNER_TEMP/certificate.p12"
+
+      - name: Windows installer tool
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Package
+        env:
+          SIGN_IDENTITY: ${{ env.HAVE_APPLE_CERT == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          mkdir out
           case "$RUNNER_OS" in
             Linux)
+              name="y2e-$tag-linux-x86_64"
               mkdir "$name"
               cp target/dist/y2e-gui packaging/y2e.desktop packaging/y2e.svg packaging/install.sh README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
-              asset="$name.tar.gz"
-              tar -czf "$asset" "$name"
+              tar -czf "out/$name.tar.gz" "$name"
+              cargo deb -p y2e-gui --profile dist --no-build -o "out/y2e-$tag-linux-amd64.deb"
               ;;
             macOS)
-              asset="$name.zip"
-              packaging/macos/bundle.sh y2e-gui "$GITHUB_REF_NAME" "$asset" LICENSE THIRD-PARTY-LICENSES.txt
+              packaging/macos/bundle.sh y2e-gui "$tag" "out/y2e-$tag-macos-universal.dmg" LICENSE THIRD-PARTY-LICENSES.txt
               ;;
             Windows)
+              name="y2e-$tag-windows-x86_64"
               mkdir "$name"
               cp target/dist/y2e-gui.exe README.md LICENSE THIRD-PARTY-LICENSES.txt "$name/"
-              asset="$name.zip"
-              powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath '$asset'"
+              powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath 'out/$name.zip'"
+              version="${tag#v}"
+              [ "$version" = "$tag" ] && version=0.0.0
+              "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DVersion=$version" "/DOutName=$name-setup" packaging/windows/y2e.iss
               ;;
           esac
-          sha256sum "$asset" > "$asset.sha256" 2>/dev/null || shasum -a 256 "$asset" > "$asset.sha256"
-          echo "ASSET=$asset" >> "$GITHUB_ENV"
+          cd out
+          for f in *; do
+            { sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; } > "$f.sha256"
+          done
+          ls -la
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ASSET }}
-          path: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET }}.sha256
+          name: packages-${{ matrix.name }}
+          path: out/*
 
   publish:
     name: Publish

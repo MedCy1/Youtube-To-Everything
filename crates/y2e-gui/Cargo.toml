@@ -22,3 +22,20 @@ rune-theme-opencode.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
+
+# The Debian package (cargo deb, built from the binary the release workflow made).
+[package.metadata.deb]
+name = "y2e"
+maintainer = "MedCy1 <noreply@users.noreply.github.com>"
+section = "video"
+priority = "optional"
+extended-description = "Paste a YouTube link, drag across the waveform to keep the part you want, and export it as MP4, MP3, a clip under 25 MB for Discord, or a GIF."
+depends = "$auto"
+recommends = "ffmpeg"
+assets = [
+    ["../../target/dist/y2e-gui", "usr/bin/", "755"],
+    ["../../packaging/y2e.desktop", "usr/share/applications/", "644"],
+    ["../../packaging/y2e.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+    ["../../LICENSE", "usr/share/doc/y2e/", "644"],
+    ["../../README.md", "usr/share/doc/y2e/", "644"],
+]
