@@ -82,7 +82,11 @@ pub fn missing_tools(tools: &[&str], can_install: bool) -> Report {
     let cause = if can_install {
         let mb: u32 = tools
             .iter()
-            .map(|t| if *t == "ffmpeg" { 150 } else { 40 })
+            .map(|t| match *t {
+                "ffmpeg" if cfg!(target_os = "macos") => 60,
+                "ffmpeg" => 150,
+                _ => 40,
+            })
             .sum();
         format!("y2e can install them for you (about {mb} MB to download, once).")
     } else {

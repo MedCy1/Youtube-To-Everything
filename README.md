@@ -98,9 +98,9 @@ Unzip `y2e-vX.Y.Z-windows-x86_64.zip` and run `y2e-gui.exe`. Windows SmartScreen
 y2e relies on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) to read and fetch videos and on [`ffmpeg`](https://ffmpeg.org) to convert them.
 
 - If both are installed on your system, y2e uses them. On macOS it also looks in the Homebrew folders.
-- If one is missing, the start screen says so and offers to install it. That downloads about 190 MB and takes about 390 MB on disk. Each file is checked against the SHA-256 sum its release publishes before it is installed.
+- If one is missing, the start screen says so and offers to install it. On Linux and Windows that downloads about 190 MB and takes about 390 MB on disk; the macOS builds are smaller. Each file is checked against the SHA-256 sum its release publishes before it is installed.
 - The tools land in `~/.local/share/y2e/bin` on Linux, `~/Library/Application Support/y2e/bin` on macOS and `%LOCALAPPDATA%\y2e\bin` on Windows.
-- No ffmpeg build is published for macOS, so there y2e installs `yt-dlp` itself and gets `ffmpeg` through [Homebrew](https://brew.sh) (`brew install ffmpeg`, run for you) when Homebrew is installed. Without it, y2e asks you to install `ffmpeg` yourself.
+- On macOS, `ffmpeg` and `ffprobe` come from [Martin Riedl's build server](https://ffmpeg.martin-riedl.de), which publishes static builds for Apple silicon and Intel with a SHA-256 sum for each file. The sum is checked the same way as for the other tools.
 - At launch, y2e looks for a newer `yt-dlp` in the background and offers to update it. If your copy comes from a package manager, y2e tells you about the update and leaves the update to you.
 - A copy of `ffmpeg` installed by y2e is offered for renewal after four months.
 
@@ -163,7 +163,6 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 - Screen reader support is built in but has not been tried with VoiceOver, Narrator, NVDA or Orca yet. Reports are welcome.
 - Cancelling a cut export stops `yt-dlp`, but on Windows the `ffmpeg` it started may keep running for a few seconds.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
-- On macOS, `ffmpeg` is installed automatically only if Homebrew is present,, and its installation shows the current stage, with the download percentage when Homebrew reports one.
 
 ## License
 

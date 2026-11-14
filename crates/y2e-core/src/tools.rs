@@ -117,23 +117,15 @@ fn asset(tool: &str, os: &str, arch: &str) -> Option<&'static str> {
         ("ffmpeg", "linux", "aarch64") => "ffmpeg-master-latest-linuxarm64-gpl.tar.xz",
         ("ffmpeg", "windows", "x86_64") => "ffmpeg-master-latest-win64-gpl.zip",
         ("ffmpeg", "windows", "aarch64") => "ffmpeg-master-latest-winarm64-gpl.zip",
-        // No ffmpeg builds are published for macOS: Homebrew provides it.
+        // Martin Riedl's builds (see `install_macos_ffmpeg`).
+        ("ffmpeg", "macos", _) => "ffmpeg.zip",
         _ => return None,
     })
 }
 
-/// Homebrew, where it is installed (macOS only: it is how ffmpeg gets there).
-fn homebrew() -> Option<PathBuf> {
-    if OS != "macos" {
-        return None;
-    }
-    system_copy("brew")
-}
-
-/// Whether the app can get `tool` itself on this system: by download, or
-/// through Homebrew when it is there.
+/// Whether the app can fetch `tool` itself on this system.
 pub fn installable(tool: &str) -> bool {
-    asset(tool, OS, ARCH).is_some() || (tool == "ffmpeg" && homebrew().is_some())
+    asset(tool, OS, ARCH).is_some()
 }
 
 /// What an installation is doing now. `fraction` (0 to 1, over the whole
@@ -223,39 +215,6 @@ fn percent(piece: &str) -> Option<f32> {
         .strip_suffix('%')?
         .parse()
         .ok()
-}
-
-/// Like [`percent`], and the older form Homebrew's bar takes when it is not
-/// drawn on a terminal: `26.#############`.
-fn brew_percent(piece: &str) -> Option<u32> {
-    if let Some(p) = percent(piece) {
-        return Some(p as u32);
-    }
-    let (number, bar) = piece.split_once('.')?;
-    (bar.starts_with('#') && !number.is_empty())
-        .then(|| number.parse().ok())
-        .flatten()
-}
-
-/// `brew install` announces each stage with a `==>` line, and may draw a bar
-/// for a download under it. The bar restarts for each dependency, so it goes
-/// in the text and the progress bar keeps sweeping.
-async fn brew_install(brew: PathBuf, formula: &str, say: &impl Fn(Step)) -> Result<()> {
-    let mut cmd = background(brew);
-    cmd.args(["install", formula])
-        .env("HOMEBREW_NO_AUTO_UPDATE", "1")
-        .env("HOMEBREW_NO_ENV_HINTS", "1")
-        .env("HOMEBREW_NO_INSTALL_CLEANUP", "1");
-    let mut stage = String::new();
-    run_watching(cmd, "brew", |piece| {
-        if let Some(next) = piece.strip_prefix("==>") {
-            stage = format!("Homebrew: {}", next.trim());
-            say(step(&stage, None));
-        } else if let Some(p) = brew_percent(piece).filter(|_| !stage.is_empty()) {
-            say(step(format!("{stage} ({p}%)"), None));
-        }
-    })
-    .await
 }
 
 /// A tool that has a newer version worth installing.
@@ -410,6 +369,74 @@ fn make_executable(_: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Checks `file` against the checksum listed in the `sha256sum`-style listing
+/// at `sums_url`, and removes it if it does not match.
+async fn verify(file: &Path, sums_url: &str, name: &str) -> Result<()> {
+    let listing = fetch_text(sums_url).await?;
+    let expected = expected_hash(&listing, name)
+        .ok_or_else(|| failure(format!("Checksum for {name} not found.")))?;
+    if sha256(file).await? != expected {
+        let _ = tokio::fs::remove_file(file).await;
+        return Err(failure(format!(
+            "The file {name} is corrupted and was rejected."
+        )));
+    }
+    Ok(())
+}
+
+/// Where a redirect leads, without following it (a 404 comes back as `None`).
+async fn redirect_target(url: &str) -> Option<String> {
+    let out = background("curl")
+        .args(["-sS", "-o", "/dev/null", "-w", "%{redirect_url}", url])
+        .output()
+        .await
+        .ok()?;
+    let target = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!target.is_empty()).then_some(target)
+}
+
+/// ffmpeg for macOS comes from Martin Riedl's build server (static builds for
+/// Apple silicon and Intel, one zip per program, each with its checksum). The
+/// "latest release" address redirects to a versioned one, which also hosts the
+/// `.sha256` file.
+async fn install_macos_ffmpeg(dir: &Path, say: impl Fn(String, f32)) -> Result<()> {
+    let arch = if ARCH == "aarch64" { "arm64" } else { "amd64" };
+    let programs = ["ffmpeg", "ffprobe"];
+    for (k, program) in programs.into_iter().enumerate() {
+        let start = k as f32 / programs.len() as f32;
+        let label = format!("Downloading {program} ({}/{})", k + 1, programs.len());
+        let latest = format!(
+            "https://ffmpeg.martin-riedl.de/redirect/latest/macos/{arch}/release/{program}.zip"
+        );
+        let url = redirect_target(&latest)
+            .await
+            .ok_or_else(|| failure("The ffmpeg download server did not answer."))?;
+        let part = dir.join(format!("{program}.zip.part"));
+        say(label.clone(), start);
+        fetch(&url, &part, |p| {
+            say(label.clone(), start + p as f32 / 100.0 * 0.45)
+        })
+        .await?;
+        say(format!("Verifying {program}"), start + 0.46);
+        verify(&part, &format!("{url}.sha256"), &format!("{program}.zip")).await?;
+
+        say(format!("Installing {program}"), start + 0.48);
+        let staging = dir.join("ffmpeg-new");
+        let _ = tokio::fs::remove_dir_all(&staging).await;
+        tokio::fs::create_dir_all(&staging).await?;
+        let mut cmd = tar();
+        cmd.arg("-xf").arg(&part).arg("-C").arg(&staging);
+        run_quiet(cmd, "tar").await?;
+        let binary = staging.join(program);
+        make_executable(&binary)?;
+        tokio::fs::rename(&binary, dir.join(program)).await?;
+        let _ = tokio::fs::remove_dir_all(&staging).await;
+        let _ = tokio::fs::remove_file(&part).await;
+    }
+    tokio::fs::write(dir.join(FFMPEG_MARKER), "").await?;
+    Ok(())
+}
+
 /// Downloads and installs `tools` into the app's own directory, checking each
 /// file against the checksum its release publishes. `say` receives what is
 /// happening, for display.
@@ -427,14 +454,14 @@ async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result
     tokio::fs::create_dir_all(&dir).await?;
 
     for (i, tool) in tools.iter().enumerate() {
-        let Some(file) = asset(tool, OS, ARCH) else {
-            let brew = homebrew()
-                .filter(|_| *tool == "ffmpeg")
-                .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
-            say(step("Installing ffmpeg with Homebrew", None));
-            brew_install(brew, "ffmpeg", &say).await?;
+        let file = asset(tool, OS, ARCH)
+            .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
+        // The share of the whole installation that `part` of this tool's work is.
+        let overall = |part: f32| Some((i as f32 + part) / tools.len() as f32);
+        if *tool == "ffmpeg" && OS == "macos" {
+            install_macos_ffmpeg(&dir, |text, part| say(step(text, overall(part)))).await?;
             continue;
-        };
+        }
         let (base, sums) = if *tool == "yt-dlp" {
             (YTDLP_BASE, "SHA2-256SUMS")
         } else {
@@ -442,8 +469,6 @@ async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result
         };
         let part = dir.join(format!("{file}.part"));
 
-        // The share of the whole installation that `part` of this tool's work is.
-        let overall = |part: f32| Some((i as f32 + part) / tools.len() as f32);
         let label = format!("Downloading {tool} ({}/{})", i + 1, tools.len());
         say(step(&label, overall(0.0)));
         fetch(&format!("{base}/{file}"), &part, |p| {
@@ -452,15 +477,7 @@ async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result
         .await?;
 
         say(step(format!("Verifying {tool}"), overall(0.92)));
-        let listing = fetch_text(&format!("{base}/{sums}")).await?;
-        let expected = expected_hash(&listing, file)
-            .ok_or_else(|| failure(format!("Checksum for {file} not found.")))?;
-        if sha256(&part).await? != expected {
-            let _ = tokio::fs::remove_file(&part).await;
-            return Err(failure(format!(
-                "The file {file} is corrupted and was rejected."
-            )));
-        }
+        verify(&part, &format!("{base}/{sums}"), file).await?;
 
         say(step(format!("Installing {tool}"), overall(0.96)));
         if *tool == "yt-dlp" {
@@ -536,14 +553,6 @@ mod tests {
         assert_eq!(percent("curl: (22) The requested URL returned error"), None);
     }
 
-    #[test]
-    fn reads_homebrews_download_bar_in_both_forms() {
-        assert_eq!(brew_percent("26.#############################"), Some(26));
-        assert_eq!(brew_percent("###########   63.4%"), Some(63));
-        assert_eq!(brew_percent("==> Pouring ffmpeg--7.1.bottle.tar.gz"), None);
-        assert_eq!(brew_percent("Warning: something. Else"), None);
-    }
-
     #[tokio::test]
     async fn pieces_are_split_at_returns_and_line_breaks() {
         let mut cmd = Command::new("sh");
@@ -576,7 +585,7 @@ mod tests {
         assert_eq!(asset("yt-dlp", "windows", "x86_64"), Some("yt-dlp.exe"));
         assert!(asset("ffmpeg", "windows", "x86_64").is_some_and(|f| f.ends_with(".zip")));
         assert!(asset("yt-dlp", "macos", "aarch64").is_some());
-        assert!(asset("ffmpeg", "macos", "aarch64").is_none());
+        assert!(asset("ffmpeg", "macos", "aarch64").is_some());
         assert!(asset("ffmpeg", "freebsd", "x86_64").is_none());
     }
 
@@ -613,10 +622,11 @@ mod tests {
             } else {
                 "--version"
             };
-            let out = command(tool).arg(flag).output().await.unwrap();
+            // The copy that was just installed, not one the system already had.
+            let copy = installed(tool).unwrap_or_else(|| panic!("{tool} was not installed"));
+            let out = background(copy).arg(flag).output().await.unwrap();
             assert!(out.status.success(), "{tool} does not run");
         }
-        // What the system gives (Homebrew's ffmpeg on macOS) completes the set.
         assert!(missing().is_empty(), "still missing: {:?}", missing());
     }
 
