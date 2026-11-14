@@ -1,0 +1,14 @@
+# Normalise line endings, so that a checkout on Windows does not turn the
+# shell scripts and the manifests into files that fail to run or to build.
+* text=auto
+
+*.sh text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.lock text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

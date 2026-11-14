@@ -12,7 +12,7 @@ Download a YouTube video, keep only the part you want, and export it in the form
 ![Rust](https://img.shields.io/badge/built%20with-Rust-orange)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 
-[Installation](#installation) · [Features](#features) · [Keyboard shortcuts](#keyboard-shortcuts) · [Build from source](#build-from-source) · [Contributing](#contributing) · [License](#license)
+[Installation](#installation) · [Features](#features) · [Keyboard shortcuts](#keyboard-shortcuts) · [Build from source](#build-from-source) · [Contributing](#contributing) · [Security](#security) · [License](#license)
 
 <br>
 
@@ -24,7 +24,7 @@ Download a YouTube video, keep only the part you want, and export it in the form
 
 y2e (YouTube to Everything) is a desktop application for turning a YouTube video into a file you can actually use: an MP4, an MP3, a clip small enough for Discord, or a GIF. You paste a link, drag across a waveform to choose the passage you care about, pick a format and export. Only the selected segment is downloaded, so a short clip from a long video takes a fraction of the time a full download would.
 
-The interface is native and GPU rendered. The window appears in about 150 ms, the studio view draws nothing while it is at rest, and the colours come from the video's thumbnail.
+The interface is native and GPU rendered. It starts quickly, the studio view draws nothing while it is at rest, and the colours come from the video's thumbnail.
 
 <div align="center">
 <img src="docs/screenshots/landing.jpg" alt="The start screen: a headline, a field to paste a YouTube link and a Load button over a colour gradient" width="640">
@@ -73,7 +73,13 @@ Tool failures are turned into one plain sentence ("This video is not available."
 
 ## Installation
 
-Packages for Linux, macOS and Windows are published on the [Releases](https://github.com/MedCy1/Youtube-To-Everything/releases) page. Each file comes with a `.sha256` checksum.
+Packages for Linux, macOS and Windows are on the [latest release](https://github.com/MedCy1/Youtube-To-Everything/releases/latest) page. Each file comes with a `.sha256` checksum.
+
+| System | Package | Requirements |
+| --- | --- | --- |
+| Linux x86_64 | `.deb`, or `.tar.gz` with an install script | Wayland or X11, a GPU driver with Vulkan or OpenGL, glibc 2.39 or later for the `.deb` |
+| macOS | `.dmg`, universal | macOS 11 or later, Apple silicon or Intel |
+| Windows x86_64 | Installer `.exe`, or portable `.zip` | Windows 10 or later |
 
 ### Linux
 
@@ -172,6 +178,10 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 - Cancelling a cut export stops `yt-dlp`, but on Windows the `ffmpeg` it started may keep running for a few seconds.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
 
+## Security
+
+Please report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
 y2e is free software, released under the [GNU Affero General Public License, version 3 or later](LICENSE). You can use, study, modify and share it, including commercially. If you distribute a modified version, or run one as a network service, you must release your source code under the same license and keep the copyright notices.
@@ -191,5 +201,6 @@ y2e is meant for videos you have the right to download, such as your own uploads
 ## Acknowledgements
 
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org) do the real work.
-- Prebuilt FFmpeg binaries come from [yt-dlp/FFmpeg-Builds](https://github.com/yt-dlp/FFmpeg-Builds).
+- Prebuilt FFmpeg binaries come from [yt-dlp/FFmpeg-Builds](https://github.com/yt-dlp/FFmpeg-Builds) on Linux and Windows, and from [Martin Riedl's build server](https://ffmpeg.martin-riedl.de) on macOS.
+- The interface is built with [Rune](https://github.com/anomalyco/rune), and the Inter and IBM Plex Mono fonts.
 - The screenshots show "Big Buck Bunny", "Sintel" and "Tears of Steel", open movies by the [Blender Foundation](https://studio.blender.org) released under the Creative Commons Attribution license, and "Me at the zoo" by jawed.
