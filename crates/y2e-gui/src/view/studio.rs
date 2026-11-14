@@ -2,6 +2,7 @@
 
 use rune::{col, el, row, spacer, text, El, Transition};
 
+use crate::i18n::t;
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -24,11 +25,11 @@ pub(super) fn title_block(s: &State, p: &Palette) -> El {
     let Some(meta) = &s.metadata else {
         return el();
     };
-    let uploader = meta.uploader.as_deref().unwrap_or("Unknown author");
+    let uploader = meta.uploader.as_deref().unwrap_or(t().unknown_author);
     let length = if meta.duration_seconds() > 0 {
-        format!("Video loaded · {}", meta.formatted_duration())
+        (t().video_loaded)(&meta.formatted_duration())
     } else {
-        "Video loaded".to_string()
+        t().video_loaded_plain.to_string()
     };
     col()
         .key("title")

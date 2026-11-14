@@ -7,6 +7,7 @@
 mod artwork;
 mod crash;
 mod gfx;
+mod i18n;
 mod link;
 mod report;
 mod settings;
@@ -116,14 +117,14 @@ fn main() {
                                 let progress = handle.clone();
                                 let result = y2e_core::tools::install(&tools, move |phase| {
                                     progress.update(move |s, _| {
-                                        s.installing = Some(phase.text);
+                                        s.install_stage = Some(phase.stage);
                                         s.install_fraction = phase.fraction;
                                     });
                                 })
                                 .await;
                                 handle.update(move |s, tx| {
                                     tx.animated();
-                                    s.finish_install(result.map_err(|e| e.to_string()));
+                                    s.finish_install(result);
                                     if s.tools_ready() {
                                         tx.focus("url_input", false);
                                     }

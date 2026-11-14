@@ -3,11 +3,13 @@
 use rune::tok::motion;
 use rune::{col, el, row, text, text_input, El, LiveRegion, LoopSpec, Transition};
 
-use crate::report::{explain, missing_tools, updates, Report};
+use crate::i18n::t;
+use crate::report::{explain, install_problem, missing_tools, updates, Report};
 use crate::state::State;
 use crate::theme::Palette;
 
 use super::*;
+use y2e_core::tools::Stage;
 
 pub(super) fn solid_button(label: &str, key: &str, big: bool, busy: bool, p: &Palette) -> El {
     let (fill, ink) = if busy {
@@ -43,9 +45,9 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
         .key("url_input")
         .grow(1.0)
         .single_line()
-        .label("YouTube video link")
+        .label(t().link_label)
         .disabled(locked)
-        .placeholder("Paste a YouTube link", p.text_faint)
+        .placeholder(t().link_placeholder, p.text_faint)
         .on_edit(|s: &mut State| &mut s.url_input)
         .on_submit(|s: &mut State, _| {
             if !s.is_loading_metadata {
@@ -55,9 +57,9 @@ pub(super) fn url_pill(s: &State, p: &Palette, big: bool) -> El {
 
     let action = solid_button(
         if s.is_loading_metadata {
-            "Loading…"
+            t().loading
         } else {
-            "Load"
+            t().load
         },
         "inspect",
         big,
@@ -179,9 +181,9 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             col()
                 .center()
                 .gap(0.0)
-                .child(text("One video.").font(display(74.0, -2.6)).color(p.text))
+                .child(text(t().hero_first).font(display(74.0, -2.6)).color(p.text))
                 .child(
-                    text("Every format.")
+                    text(t().hero_second)
                         .font(display(74.0, -2.6))
                         .color(p.text_dim),
                 ),
@@ -189,14 +191,19 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         .child(url_pill(s, p, true));
 
     if s.is_loading_metadata {
-        stack = stack.child(loading_row(
-            "hero-loading",
-            "Fetching video details",
-            None,
-            p,
-        ));
-    } else if let Some(phase) = &s.installing {
-        stack = stack.child(loading_row("hero-install", phase, s.install_fraction, p));
+        stack = stack.child(loading_row("hero-loading", t().fetching_details, None, p));
+    } else if s.installing {
+        let label = match &s.install_stage {
+            Some(Stage::Downloading {
+                tool,
+                number,
+                total,
+            }) => (t().step_downloading)(tool, *number, *total),
+            Some(Stage::Verifying(tool)) => (t().step_verifying)(tool),
+            Some(Stage::Installing(tool)) => (t().step_installing)(tool),
+            None => t().preparing.to_string(),
+        };
+        stack = stack.child(loading_row("hero-install", &label, s.install_fraction, p));
     } else if !s.missing_tools.is_empty() {
         let can_install = s
             .missing_tools
@@ -204,9 +211,9 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             .all(|t| y2e_core::tools::installable(t));
         let failed = s.install_error.is_some();
         let report = match &s.install_error {
-            Some(cause) => Report {
-                headline: "Installation failed.",
-                cause: Some(cause.clone()),
+            Some(problem) => Report {
+                headline: t().install_failed,
+                cause: Some(install_problem(problem)),
             },
             None => missing_tools(&s.missing_tools, can_install),
         };
@@ -215,9 +222,9 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             stack = stack.child(
                 solid_button(
                     if failed {
-                        "Try again"
+                        t().try_again
                     } else {
-                        "Install automatically"
+                        t().install_auto
                     },
                     "install-tools",
                     true,
@@ -243,13 +250,13 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         let mut actions = row().gap(12.0);
         if can_update {
             actions = actions.child(
-                solid_button("Update", "update-tools", true, false, p)
+                solid_button(t().update, "update-tools", true, false, p)
                     .default_button()
                     .on_press(|s: &mut State| s.update_tools()),
             );
         }
         let dismiss = solid_button(
-            if can_update { "Later" } else { "Got it" },
+            if can_update { t().later } else { t().got_it },
             "dismiss-update",
             true,
             can_update,
@@ -264,11 +271,10 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         }));
     } else if let Some(update) = s.app_update.as_ref().filter(|_| !s.app_update_dismissed) {
         let report = Report {
-            headline: "A new version of y2e is available.",
-            cause: Some(format!(
-                "Version {} is out, you have {}.",
-                update.version,
-                env!("CARGO_PKG_VERSION")
+            headline: t().app_update_headline,
+            cause: Some((t().app_update_cause)(
+                &update.version,
+                env!("CARGO_PKG_VERSION"),
             )),
         };
         stack = stack.child(notice_card("hero-app-update", "↑", p.accent, &report, p));
@@ -276,24 +282,22 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
             row()
                 .gap(12.0)
                 .child(
-                    solid_button("See what's new", "open-app-update", true, false, p)
+                    solid_button(t().see_whats_new, "open-app-update", true, false, p)
                         .default_button()
                         .on_press(|s: &mut State| s.open_app_update()),
                 )
                 .child(
-                    solid_button("Later", "dismiss-app-update", true, true, p)
+                    solid_button(t().later, "dismiss-app-update", true, true, p)
                         .on_press(|s: &mut State| s.app_update_dismissed = true),
                 ),
         );
     } else {
         stack = stack.child(if s.clipboard_link {
-            text("Link found on the clipboard. Press Enter to load it.")
+            text(t().clipboard_link)
                 .font(face(15.0, 600))
                 .color(p.accent_hi)
         } else {
-            text("MP4 · MP3 · Discord · GIF. Just the part you want.")
-                .font(face(15.0, 500))
-                .color(p.text_faint)
+            text(t().tagline).font(face(15.0, 500)).color(p.text_faint)
         });
     }
     stack

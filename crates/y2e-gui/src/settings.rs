@@ -1,5 +1,6 @@
 //! What the user can change, kept in a small JSON file in the config folder.
 
+use crate::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use y2e_core::DownloadPreset;
@@ -13,6 +14,8 @@ pub struct Settings {
     pub default_preset: DownloadPreset,
     /// Hold the animated background still while the window is not in front.
     pub pause_when_unfocused: bool,
+    /// The language of the interface. The system's, when unset.
+    pub language: Option<Lang>,
 }
 
 /// `~/.config/y2e/settings.json` on Linux, the matching folder elsewhere.
@@ -47,6 +50,10 @@ impl Settings {
         std::fs::rename(partial, path)
     }
 
+    pub fn lang(&self) -> Lang {
+        self.language.unwrap_or_else(Lang::of_system)
+    }
+
     /// The chosen folder, else Downloads, else the home folder, and the
     /// current folder only when the system names none of them.
     pub fn export_dir(&self) -> PathBuf {
@@ -77,6 +84,7 @@ mod tests {
             output_dir: Some(PathBuf::from("/exports")),
             default_preset: DownloadPreset::GifMeme,
             pause_when_unfocused: true,
+            language: Some(Lang::French),
         };
         saved.write(&path).unwrap();
         assert_eq!(Settings::read(&path), saved);

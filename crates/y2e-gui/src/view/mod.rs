@@ -3,6 +3,7 @@ use rune_kit::Kit;
 use std::f32::consts::PI;
 
 use crate::gfx;
+use crate::i18n::t;
 use crate::report::explain;
 use crate::state::State;
 use crate::theme::{palette, Palette};
@@ -106,7 +107,7 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                 notice(
                     "notice-done",
                     p.success,
-                    "Export finished",
+                    t().export_finished,
                     Some(path.display().to_string()),
                     &p,
                 )
@@ -117,11 +118,11 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
                         .fill(p.chip)
                         .press_scale(0.96)
                         .role("button")
-                        .label("Open folder")
+                        .label(t().open_folder)
                         .focusable(true)
                         .focus_ring(2.0, 2.0, p.text)
                         .center()
-                        .child(text("Open folder").font(face(13.0, 600)).color(p.text))
+                        .child(text(t().open_folder).font(face(13.0, 600)).color(p.text))
                         .on_press(|s: &mut State| s.reveal_download()),
                 ),
             );

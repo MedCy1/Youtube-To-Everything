@@ -10,7 +10,7 @@ use tokio::process::Command;
 use std::process::Stdio;
 
 use crate::engine::run_quiet;
-use crate::error::{Result, Y2eError};
+use crate::error::{InstallProblem, Result, Y2eError};
 
 const TOOLS: [&str; 2] = ["yt-dlp", "ffmpeg"];
 const YTDLP_BASE: &str = "https://github.com/yt-dlp/yt-dlp/releases/latest/download";
@@ -128,19 +128,29 @@ pub fn installable(tool: &str) -> bool {
     asset(tool, OS, ARCH).is_some()
 }
 
+/// Which part of an installation is under way.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stage {
+    /// `number` of `total` tools.
+    Downloading {
+        tool: String,
+        number: usize,
+        total: usize,
+    },
+    Verifying(String),
+    Installing(String),
+}
+
 /// What an installation is doing now. `fraction` (0 to 1, over the whole
 /// installation) is `None` when there is no way to tell how far along it is.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Step {
-    pub text: String,
+    pub stage: Stage,
     pub fraction: Option<f32>,
 }
 
-fn step(text: impl Into<String>, fraction: Option<f32>) -> Step {
-    Step {
-        text: text.into(),
-        fraction,
-    }
+fn step(stage: Stage, fraction: Option<f32>) -> Step {
+    Step { stage, fraction }
 }
 
 /// Reads a pipe and sends each piece of text between line breaks or carriage
@@ -217,12 +227,20 @@ fn percent(piece: &str) -> Option<f32> {
         .ok()
 }
 
+/// Why a tool is offered for an update.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Change {
+    /// A newer release exists.
+    Version { from: String, to: String },
+    /// The app's own copy is old enough to be worth renewing.
+    Aged,
+}
+
 /// A tool that has a newer version worth installing.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Update {
     pub tool: &'static str,
-    /// What changes, for display.
-    pub detail: String,
+    pub change: Change,
     /// The app installed this copy and can replace it; otherwise it belongs to
     /// the user's package manager and only they can update it.
     pub managed: bool,
@@ -265,7 +283,10 @@ pub async fn updates() -> Vec<Update> {
         if newer(&latest, &current) {
             found.push(Update {
                 tool: "yt-dlp",
-                detail: format!("{current} → {latest}"),
+                change: Change::Version {
+                    from: current,
+                    to: latest,
+                },
                 managed: managed("yt-dlp").is_some(),
             });
         }
@@ -277,15 +298,15 @@ pub async fn updates() -> Vec<Update> {
     if managed("ffmpeg").is_some() && age.is_some_and(|age| age > FFMPEG_MAX_AGE) {
         found.push(Update {
             tool: "ffmpeg",
-            detail: "installed more than 4 months ago".to_string(),
+            change: Change::Aged,
             managed: true,
         });
     }
     found
 }
 
-fn failure(what: impl Into<String>) -> Y2eError {
-    Y2eError::Install(what.into())
+fn failure(problem: InstallProblem) -> Y2eError {
+    Y2eError::Install(problem)
 }
 
 /// The checksum listed for `file` in a `sha256sum`-style listing.
@@ -327,7 +348,7 @@ pub(crate) async fn fetch_text(url: &str) -> Result<String> {
         .output()
         .await?;
     if !out.status.success() {
-        return Err(failure(format!("Could not read {url}.")));
+        return Err(failure(InstallProblem::Unreadable(url.to_string())));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
@@ -353,7 +374,7 @@ async fn sha256(file: &Path) -> Result<String> {
             .collect())
     })
     .await
-    .map_err(|err| failure(err.to_string()))?
+    .map_err(|err| failure(InstallProblem::Other(err.to_string())))?
 }
 
 /// The `tar` that reads zip and xz archives alike: GNU tar on Linux, bsdtar on
@@ -386,12 +407,10 @@ fn make_executable(_: &Path) -> Result<()> {
 async fn verify(file: &Path, sums_url: &str, name: &str) -> Result<()> {
     let listing = fetch_text(sums_url).await?;
     let expected = expected_hash(&listing, name)
-        .ok_or_else(|| failure(format!("Checksum for {name} not found.")))?;
+        .ok_or_else(|| failure(InstallProblem::ChecksumMissing(name.to_string())))?;
     if sha256(file).await? != expected {
         let _ = tokio::fs::remove_file(file).await;
-        return Err(failure(format!(
-            "The file {name} is corrupted and was rejected."
-        )));
+        return Err(failure(InstallProblem::Corrupted(name.to_string())));
     }
     Ok(())
 }
@@ -411,28 +430,32 @@ async fn redirect_target(url: &str) -> Option<String> {
 /// Apple silicon and Intel, one zip per program, each with its checksum). The
 /// "latest release" address redirects to a versioned one, which also hosts the
 /// `.sha256` file.
-async fn install_macos_ffmpeg(dir: &Path, say: impl Fn(String, f32)) -> Result<()> {
+async fn install_macos_ffmpeg(dir: &Path, say: impl Fn(Stage, f32)) -> Result<()> {
     let arch = if ARCH == "aarch64" { "arm64" } else { "amd64" };
     let programs = ["ffmpeg", "ffprobe"];
     for (k, program) in programs.into_iter().enumerate() {
         let start = k as f32 / programs.len() as f32;
-        let label = format!("Downloading {program} ({}/{})", k + 1, programs.len());
+        let downloading = || Stage::Downloading {
+            tool: program.to_string(),
+            number: k + 1,
+            total: programs.len(),
+        };
         let latest = format!(
             "https://ffmpeg.martin-riedl.de/redirect/latest/macos/{arch}/release/{program}.zip"
         );
         let url = redirect_target(&latest)
             .await
-            .ok_or_else(|| failure("The ffmpeg download server did not answer."))?;
+            .ok_or_else(|| failure(InstallProblem::ServerSilent))?;
         let part = dir.join(format!("{program}.zip.part"));
-        say(label.clone(), start);
+        say(downloading(), start);
         fetch(&url, &part, |p| {
-            say(label.clone(), start + p as f32 / 100.0 * 0.45)
+            say(downloading(), start + p as f32 / 100.0 * 0.45)
         })
         .await?;
-        say(format!("Verifying {program}"), start + 0.46);
+        say(Stage::Verifying(program.to_string()), start + 0.46);
         verify(&part, &format!("{url}.sha256"), &format!("{program}.zip")).await?;
 
-        say(format!("Installing {program}"), start + 0.48);
+        say(Stage::Installing(program.to_string()), start + 0.48);
         let staging = dir.join("ffmpeg-new");
         let _ = tokio::fs::remove_dir_all(&staging).await;
         tokio::fs::create_dir_all(&staging).await?;
@@ -455,23 +478,23 @@ async fn install_macos_ffmpeg(dir: &Path, say: impl Fn(String, f32)) -> Result<(
 pub async fn install(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result<()> {
     install_all(tools, say).await.map_err(|err| match err {
         Y2eError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => {
-            failure("curl or tar is missing on this system.")
+            failure(InstallProblem::MissingHelper)
         }
         other => other,
     })
 }
 
 async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result<()> {
-    let dir = managed_dir().ok_or_else(|| failure("Data folder not found."))?;
+    let dir = managed_dir().ok_or_else(|| failure(InstallProblem::NoDataFolder))?;
     tokio::fs::create_dir_all(&dir).await?;
 
     for (i, tool) in tools.iter().enumerate() {
         let file = asset(tool, OS, ARCH)
-            .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
+            .ok_or_else(|| failure(InstallProblem::NoBuild(tool.to_string())))?;
         // The share of the whole installation that `part` of this tool's work is.
         let overall = |part: f32| Some((i as f32 + part) / tools.len() as f32);
         if *tool == "ffmpeg" && OS == "macos" {
-            install_macos_ffmpeg(&dir, |text, part| say(step(text, overall(part)))).await?;
+            install_macos_ffmpeg(&dir, |stage, part| say(step(stage, overall(part)))).await?;
             continue;
         }
         let (base, sums) = if *tool == "yt-dlp" {
@@ -481,17 +504,21 @@ async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result
         };
         let part = dir.join(format!("{file}.part"));
 
-        let label = format!("Downloading {tool} ({}/{})", i + 1, tools.len());
-        say(step(&label, overall(0.0)));
+        let downloading = || Stage::Downloading {
+            tool: tool.to_string(),
+            number: i + 1,
+            total: tools.len(),
+        };
+        say(step(downloading(), overall(0.0)));
         fetch(&format!("{base}/{file}"), &part, |p| {
-            say(step(&label, overall(p as f32 / 100.0 * 0.9)))
+            say(step(downloading(), overall(p as f32 / 100.0 * 0.9)))
         })
         .await?;
 
-        say(step(format!("Verifying {tool}"), overall(0.92)));
+        say(step(Stage::Verifying(tool.to_string()), overall(0.92)));
         verify(&part, &format!("{base}/{sums}"), file).await?;
 
-        say(step(format!("Installing {tool}"), overall(0.96)));
+        say(step(Stage::Installing(tool.to_string()), overall(0.96)));
         if *tool == "yt-dlp" {
             make_executable(&part)?;
             tokio::fs::rename(&part, dir.join(exe("yt-dlp"))).await?;

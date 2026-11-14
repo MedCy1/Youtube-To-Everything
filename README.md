@@ -69,7 +69,11 @@ y2e drives `yt-dlp` and `ffmpeg`. It uses the ones on your `PATH`, and if they a
 
 ### Settings
 
-The Settings button in the top right corner opens a small window with three options: the folder exports are saved in, the format selected when y2e starts, and whether the animated background stays still while the window is not in front. They are kept in `settings.json` in your config folder (`~/.config/y2e` on Linux, `~/Library/Application Support/y2e` on macOS, `%APPDATA%\y2e` on Windows).
+The Settings button in the top right corner opens a small window with four options: the folder exports are saved in, the format selected when y2e starts, whether the animated background stays still while the window is not in front, and the language. They are kept in `settings.json` in your config folder (`~/.config/y2e` on Linux, `~/Library/Application Support/y2e` on macOS, `%APPDATA%\y2e` on Windows).
+
+### English and French
+
+The interface speaks English and French. It follows the language of your system the first time, and the Settings window switches it at any moment. See [CONTRIBUTING.md](CONTRIBUTING.md) to add another language.
 
 ### Clear errors
 
@@ -171,7 +175,6 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 ## Roadmap
 
-- A language switch, with French as the first translation.
 - Chapters, so a video can be cut by section.
 
 ## Known limitations

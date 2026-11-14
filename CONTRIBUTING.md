@@ -53,6 +53,10 @@ The engine and the interface talk through typed events (`CoreEvent`). New behavi
 - Text shown to users is plain English, in short sentences. It will be translated later, so avoid building sentences from fragments.
 - Never block the interface thread. Anything slow runs on the Tokio runtime and reports back through an event.
 
+### Translating
+
+Every text of the interface is in `crates/y2e-gui/src/i18n.rs`, in a `Strings` value per language. To add a language, add a variant to `Lang`, a `Strings` value with every field filled in (the compiler refuses one that leaves a text out), and a chip for it in the settings window (`languages` in `view/settings.rs`). Texts with a blank to fill are functions, so a language can put the blank where its grammar wants it. The messages of `yt-dlp` and `ffmpeg` themselves stay in English: the interface only words the ones it recognises.
+
 ### Commit messages
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org), because they are turned into the release notes.

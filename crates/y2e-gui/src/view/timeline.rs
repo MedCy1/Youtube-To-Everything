@@ -5,6 +5,7 @@ use rune::{col, el, row, spacer, text, El};
 use rune_kit::{Kit, RollingText};
 use y2e_core::format_time_seconds;
 
+use crate::i18n::t;
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -62,21 +63,18 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         .child(grip(p, false));
 
     let described = if s.enable_snipper {
-        format!(
-            "Clip from {} to {}.",
-            format_time_seconds(s.start_time_secs),
-            format_time_seconds(s.end_time_secs)
+        (t().clip_described)(
+            &format_time_seconds(s.start_time_secs),
+            &format_time_seconds(s.end_time_secs),
         )
     } else {
-        format!("Whole video, {}.", format_time_seconds(s.duration()))
+        (t().whole_described)(&format_time_seconds(s.duration()))
     };
     let track = el()
         .key("timeline")
         .role("group")
-        .label("Clip range")
-        .description(format!(
-            "{described} The arrow keys move the end of the clip, Shift with an arrow moves the start, Home selects the whole video."
-        ))
+        .label(t().clip_range)
+        .description(format!("{described} {}", t().clip_keys_help))
         .w_full()
         .h(64.0)
         .child(bars)
@@ -108,10 +106,9 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
             .gap(10.0)
             .center_y()
             .child(
-                text(format!(
-                    "Clip  {} → {}",
-                    format_time_seconds(s.start_time_secs),
-                    format_time_seconds(s.end_time_secs)
+                text((t().clip_summary)(
+                    &format_time_seconds(s.start_time_secs),
+                    &format_time_seconds(s.end_time_secs),
                 ))
                 .font(figures(15.0, 600))
                 .color(p.text),
@@ -131,16 +128,14 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
                     .center()
                     .press_scale(0.96)
                     .role("button")
-                    .label("Select the whole video")
+                    .label(t().select_whole)
                     .focusable(true)
                     .focus_ring(2.0, 2.0, p.text)
-                    .child(text("All").font(face(13.0, 600)).color(p.text_dim))
+                    .child(text(t().all).font(face(13.0, 600)).color(p.text_dim))
                     .on_press(|s: &mut State| s.reset_range()),
             )
     } else {
-        text("Whole video. Drag across the waveform to cut.")
-            .font(face(15.0, 500))
-            .color(p.text_dim)
+        text(t().whole_hint).font(face(15.0, 500)).color(p.text_dim)
     };
 
     col().w_full().gap(10.0).child(track).child(

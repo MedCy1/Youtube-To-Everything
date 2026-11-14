@@ -4,7 +4,9 @@ use rune::{Key, KeyEvent, Live, LiveText, Pixels, TextEdit};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::OnceLock;
-use y2e_core::{format_time_seconds, CoreEvent, DownloadPreset, TimeRange, VideoMetadata};
+use y2e_core::{
+    format_time_seconds, CoreEvent, DownloadPreset, InstallProblem, TimeRange, VideoMetadata,
+};
 
 /// Hue of the brand coral, used until artwork supplies its own.
 pub const BRAND_HUE: f32 = 35.0;
@@ -57,10 +59,13 @@ pub struct State {
     /// External tools not found at startup (`yt-dlp`, `ffmpeg`).
     pub missing_tools: Vec<&'static str>,
     /// What the installer is doing, while it runs.
-    pub installing: Option<String>,
+    /// Tools are being installed.
+    pub installing: bool,
+    /// What the installation is doing now, once it has started.
+    pub install_stage: Option<y2e_core::tools::Stage>,
     /// How far the installation is, from 0 to 1, when that is known.
     pub install_fraction: Option<f32>,
-    pub install_error: Option<String>,
+    pub install_error: Option<InstallProblem>,
     /// Newer versions of the tools, once the startup check has answered.
     pub updates: Vec<y2e_core::tools::Update>,
     /// The user chose to carry on without updating, for this session.
@@ -91,7 +96,6 @@ pub struct State {
     pub progress_percent: f32,
     pub speed_str: String,
     pub eta_str: String,
-    pub status_text: String,
     pub downloaded_file: Option<PathBuf>,
     pub inspect_error: Option<String>,
     pub download_error: Option<String>,
@@ -101,6 +105,7 @@ impl State {
     /// The state at startup, with what the user saved last time.
     pub fn load() -> Self {
         let settings = Settings::load();
+        settings.lang().select();
         Self {
             preset: settings.default_preset,
             settings,
@@ -111,6 +116,12 @@ impl State {
     pub fn set_default_preset(&mut self, preset: DownloadPreset) {
         self.settings.default_preset = preset;
         self.preset = preset;
+        self.settings.save();
+    }
+
+    pub fn set_language(&mut self, lang: crate::i18n::Lang) {
+        self.settings.language = Some(lang);
+        lang.select();
         self.settings.save();
     }
 
@@ -132,7 +143,8 @@ impl State {
             Ok(Some(dir)) => self.set_export_dir(Some(dir)),
             Ok(None) => {}
             Err(error) => {
-                self.settings_error = Some(format!("Could not open the folder chooser: {error}"))
+                self.settings_error =
+                    Some((crate::i18n::t().folder_dialog_failed)(&error.to_string()))
             }
         }
     }
@@ -148,7 +160,8 @@ impl Default for State {
             export_hover: false,
             clipboard_link: false,
             missing_tools,
-            installing: None,
+            installing: false,
+            install_stage: None,
             install_fraction: None,
             install_error: None,
             updates: Vec::new(),
@@ -174,7 +187,6 @@ impl Default for State {
             progress_percent: 0.0,
             speed_str: "-".to_string(),
             eta_str: "-".to_string(),
-            status_text: "Ready.".to_string(),
             downloaded_file: None,
             inspect_error: None,
             download_error: None,
@@ -232,7 +244,6 @@ impl State {
         self.progress_percent = 0.0;
         self.downloaded_file = None;
         self.download_error = None;
-        self.status_text = "Starting…".to_string();
 
         let output_dir = self.settings.export_dir();
 
@@ -257,7 +268,6 @@ impl State {
         }
         self.is_downloading = false;
         self.progress_percent = 0.0;
-        self.status_text = "Export cancelled.".to_string();
     }
 
     /// Fills the empty field with a YouTube link found in the clipboard, when
@@ -465,25 +475,28 @@ impl State {
     }
 
     fn install(&mut self, tools: Vec<&'static str>) {
-        if self.installing.is_some() || tools.is_empty() {
+        if self.installing || tools.is_empty() {
             return;
         }
         if let Some(tx) = ACTION_TX.get() {
-            self.installing = Some("Preparing".to_string());
+            self.installing = true;
+            self.install_stage = None;
             self.install_fraction = None;
             self.install_error = None;
             let _ = tx.send(GuiAction::InstallTools(tools));
         }
     }
 
-    pub fn finish_install(&mut self, result: Result<(), String>) {
-        self.installing = None;
+    pub fn finish_install(&mut self, result: Result<(), y2e_core::Y2eError>) {
+        self.installing = false;
+        self.install_stage = None;
         match result {
             Ok(()) => {
                 self.missing_tools = y2e_core::tools::missing();
                 self.updates.clear();
             }
-            Err(err) => self.install_error = Some(err),
+            Err(y2e_core::Y2eError::Install(problem)) => self.install_error = Some(problem),
+            Err(other) => self.install_error = Some(InstallProblem::Other(other.to_string())),
         }
     }
 
@@ -504,27 +517,23 @@ impl State {
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;
-                self.status_text = "Downloading…".to_string();
             }
             CoreEvent::Progress(update) => {
                 self.progress_percent = update.percent.clamp(0.0, 100.0);
                 self.speed_str = update.speed;
                 self.eta_str = update.eta;
             }
-            CoreEvent::StatusChanged(text) => {
-                self.status_text = text;
-            }
+            // The phase of an export is not shown: the progress bar says enough.
+            CoreEvent::StatusChanged(_) => {}
             CoreEvent::Finished { output_path } => {
                 self.is_downloading = false;
                 self.progress_percent = 100.0;
-                self.status_text = "Export finished.".to_string();
                 self.downloaded_file = Some(output_path);
                 self.completed += 1;
             }
             CoreEvent::Error(err) => {
                 self.is_downloading = false;
                 self.download_error = Some(err);
-                self.status_text = "The export failed.".to_string();
             }
         }
     }

@@ -3,6 +3,7 @@
 use rune::{col, el, row, text, El, FileDialogOptions, Tx};
 use y2e_core::DownloadPreset;
 
+use crate::i18n::{t, Lang};
 use crate::state::State;
 use crate::theme::Palette;
 
@@ -21,10 +22,10 @@ pub(super) fn settings_button(p: &Palette) -> El {
         .center()
         .press_scale(0.96)
         .role("button")
-        .label("Settings")
+        .label(t().settings)
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
-        .child(text("Settings").font(face(14.0, 600)).color(p.text))
+        .child(text(t().settings).font(face(14.0, 600)).color(p.text))
         .on_press(|s: &mut State| s.settings_open = true)
 }
 
@@ -45,13 +46,13 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .center()
         .press_scale(0.96)
         .role("button")
-        .label("Choose the export folder")
+        .label(t().choose_folder)
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
-        .child(text("Change…").font(face(14.0, 600)).color(p.text))
+        .child(text(t().change).font(face(14.0, 600)).color(p.text))
         .on_press_tx(|_: &mut State, tx: &mut Tx| {
             let options = FileDialogOptions {
-                title: "Export folder".into(),
+                title: t().folder_dialog_title.into(),
                 ..Default::default()
             };
             tx.open_folder(options, |s: &mut State, result, _| s.folder_chosen(result));
@@ -66,10 +67,10 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
                 .center()
                 .press_scale(0.96)
                 .role("button")
-                .label("Use the Downloads folder")
+                .label(t().use_downloads)
                 .focusable(true)
                 .focus_ring(2.0, 2.0, p.text)
-                .child(text("Reset").font(face(14.0, 500)).color(p.text_dim))
+                .child(text(t().reset).font(face(14.0, 500)).color(p.text_dim))
                 .on_press(|s: &mut State| s.set_export_dir(None)),
         );
     }
@@ -84,7 +85,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
     let mut card = col()
         .key("settings-card")
         .role("dialog")
-        .label("Settings")
+        .label(t().settings)
         .w_full()
         .max_w(560.0)
         .px(28.0)
@@ -95,23 +96,29 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .fill(p.glass.alpha(0.88))
         .border(1.0, p.text.alpha(0.12))
         .modal(true, |s: &mut State| s.settings_open = false)
-        .child(text("Settings").font(display(26.0, -0.6)).color(p.text))
+        .child(text(t().settings).font(display(26.0, -0.6)).color(p.text))
         .child(setting_row(
-            "Export folder",
+            t().export_folder,
             folder.display().to_string(),
             folder_controls.child(choose),
             p,
         ))
         .child(setting_row(
-            "Default format",
-            "Selected when y2e starts.".into(),
+            t().default_format,
+            t().default_format_hint.into(),
             formats,
             p,
         ))
         .child(setting_row(
-            "Pause the background",
-            "Hold the animated background still while y2e is not in front.".into(),
+            t().pause_background,
+            t().pause_background_hint.into(),
             switch(s.settings.pause_when_unfocused, p),
+            p,
+        ))
+        .child(setting_row(
+            t().language,
+            t().language_hint.into(),
+            languages(s, p),
             p,
         ));
     if let Some(error) = &s.settings_error {
@@ -124,7 +131,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
     }
     card = card.child(
         row().w_full().justify_end().child(
-            solid_button("Done", "close-settings", false, false, p)
+            solid_button(t().done, "close-settings", false, false, p)
                 .default_button()
                 .on_press(|s: &mut State| s.settings_open = false),
         ),
@@ -185,7 +192,7 @@ fn format_chip(s: &State, p: &Palette, preset: DownloadPreset, name: &'static st
         .center()
         .press_scale(0.96)
         .role("button")
-        .label(format!("{name} as the default format"))
+        .label((t().format_as_default)(name))
         .checked(on)
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
@@ -195,6 +202,35 @@ fn format_chip(s: &State, p: &Palette, preset: DownloadPreset, name: &'static st
                 .color(if on { p.ink } else { p.text }),
         )
         .on_press(move |s: &mut State| s.set_default_preset(preset))
+}
+
+/// The two languages, each named in itself.
+fn languages(s: &State, p: &Palette) -> El {
+    let chip = |lang: Lang, name: &'static str| {
+        let on = s.settings.lang() == lang;
+        el().key(format!("language-{name}"))
+            .h(34.0)
+            .px(14.0)
+            .radius(17.0)
+            .fill(if on { p.text } else { p.chip })
+            .center()
+            .press_scale(0.96)
+            .role("button")
+            .label(name)
+            .checked(on)
+            .focusable(true)
+            .focus_ring(2.0, 2.0, p.text)
+            .child(
+                text(name)
+                    .font(face(14.0, if on { 600 } else { 500 }))
+                    .color(if on { p.ink } else { p.text }),
+            )
+            .on_press(move |s: &mut State| s.set_language(lang))
+    };
+    row()
+        .gap(8.0)
+        .child(chip(Lang::English, "English"))
+        .child(chip(Lang::French, "Français"))
 }
 
 /// An on and off switch: a knob in a pill.
@@ -212,7 +248,7 @@ fn switch(on: bool, p: &Palette) -> El {
         .center_y()
         .fill(if on { p.accent } else { p.chip })
         .role("switch")
-        .label("Pause the background when y2e is not in front")
+        .label(t().pause_background_label)
         .checked(on)
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
