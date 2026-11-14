@@ -55,6 +55,8 @@ pub struct State {
     pub missing_tools: Vec<&'static str>,
     /// What the installer is doing, while it runs.
     pub installing: Option<String>,
+    /// How far the installation is, from 0 to 1, when that is known.
+    pub install_fraction: Option<f32>,
     pub install_error: Option<String>,
     /// Newer versions of the tools, once the startup check has answered.
     pub updates: Vec<y2e_core::tools::Update>,
@@ -94,6 +96,7 @@ impl Default for State {
             clipboard_link: false,
             missing_tools,
             installing: None,
+            install_fraction: None,
             install_error: None,
             updates: Vec::new(),
             updates_dismissed: false,
@@ -378,6 +381,7 @@ impl State {
         }
         if let Some(tx) = ACTION_TX.get() {
             self.installing = Some("Preparing".to_string());
+            self.install_fraction = None;
             self.install_error = None;
             let _ = tx.send(GuiAction::InstallTools(tools));
         }

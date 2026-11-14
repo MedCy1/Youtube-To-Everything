@@ -7,6 +7,8 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
+use std::process::Stdio;
+
 use crate::engine::run_quiet;
 use crate::error::{Result, Y2eError};
 
@@ -131,13 +133,108 @@ pub fn installable(tool: &str) -> bool {
     asset(tool, OS, ARCH).is_some() || (tool == "ffmpeg" && homebrew().is_some())
 }
 
-async fn brew_install(brew: PathBuf, formula: &str) -> Result<()> {
+/// What an installation is doing now. `fraction` (0 to 1, over the whole
+/// installation) is `None` when there is no way to tell how far along it is.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Step {
+    pub text: String,
+    pub fraction: Option<f32>,
+}
+
+fn step(text: impl Into<String>, fraction: Option<f32>) -> Step {
+    Step {
+        text: text.into(),
+        fraction,
+    }
+}
+
+/// Reads a pipe and sends each piece of text between line breaks or carriage
+/// returns: `curl`'s progress bar redraws one line with `\r`.
+fn forward_pieces<R>(mut reader: R, tx: tokio::sync::mpsc::UnboundedSender<String>)
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+{
+    use tokio::io::AsyncReadExt;
+    tokio::spawn(async move {
+        let (mut buf, mut pending) = ([0u8; 4096], String::new());
+        loop {
+            let n = reader.read(&mut buf).await.unwrap_or(0);
+            if n == 0 {
+                break;
+            }
+            pending.push_str(&String::from_utf8_lossy(&buf[..n]));
+            while let Some(end) = pending.find(['\r', '\n']) {
+                let piece: String = pending.drain(..=end).collect();
+                if !piece.trim().is_empty() {
+                    let _ = tx.send(piece.trim().to_string());
+                }
+            }
+        }
+        if !pending.trim().is_empty() {
+            let _ = tx.send(pending.trim().to_string());
+        }
+    });
+}
+
+/// Runs a command and hands `on_piece` what it prints as it goes. On failure
+/// the last lines it printed are the error.
+async fn run_watching(mut cmd: Command, name: &str, mut on_piece: impl FnMut(&str)) -> Result<()> {
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = cmd.spawn()?;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    if let Some(out) = child.stdout.take() {
+        forward_pieces(out, tx.clone());
+    }
+    if let Some(err) = child.stderr.take() {
+        forward_pieces(err, tx.clone());
+    }
+    drop(tx);
+    let mut last: Vec<String> = Vec::new();
+    while let Some(piece) = rx.recv().await {
+        on_piece(&piece);
+        if !piece.contains('#') {
+            last.push(piece);
+            if last.len() > 6 {
+                last.remove(0);
+            }
+        }
+    }
+    let status = child.wait().await?;
+    if status.success() {
+        return Ok(());
+    }
+    Err(Y2eError::ProcessFailed {
+        command: name.to_string(),
+        code: status.code(),
+        stderr: last.join("\n"),
+    })
+}
+
+/// The percentage in a line of `curl --progress-bar` output (`####  45.2%`).
+fn percent(piece: &str) -> Option<f32> {
+    piece
+        .split_whitespace()
+        .last()?
+        .strip_suffix('%')?
+        .parse()
+        .ok()
+}
+
+/// `brew install` announces each stage with a `==>` line.
+async fn brew_install(brew: PathBuf, formula: &str, say: &impl Fn(Step)) -> Result<()> {
     let mut cmd = background(brew);
     cmd.args(["install", formula])
         .env("HOMEBREW_NO_AUTO_UPDATE", "1")
         .env("HOMEBREW_NO_ENV_HINTS", "1")
         .env("HOMEBREW_NO_INSTALL_CLEANUP", "1");
-    run_quiet(cmd, "brew").await
+    run_watching(cmd, "brew", |piece| {
+        if let Some(stage) = piece.strip_prefix("==>") {
+            say(step(format!("Homebrew: {}", stage.trim()), None));
+        }
+    })
+    .await
 }
 
 /// A tool that has a newer version worth installing.
@@ -219,12 +316,29 @@ fn expected_hash<'a>(listing: &'a str, file: &str) -> Option<&'a str> {
     })
 }
 
-async fn fetch(url: &str, to: &Path) -> Result<()> {
+/// Downloads `url` to `to`, reporting each new whole percent to `on_percent`.
+async fn fetch(url: &str, to: &Path, mut on_percent: impl FnMut(u32)) -> Result<()> {
     let mut cmd = background("curl");
-    cmd.args(["-fL", "--silent", "--show-error", "--retry", "2", "-o"])
-        .arg(to)
-        .arg(url);
-    run_quiet(cmd, "curl").await
+    cmd.args([
+        "-fL",
+        "--progress-bar",
+        "--show-error",
+        "--retry",
+        "2",
+        "-o",
+    ])
+    .arg(to)
+    .arg(url);
+    let mut shown = None;
+    run_watching(cmd, "curl", |piece| {
+        if let Some(p) = percent(piece).map(|p| p as u32) {
+            if shown != Some(p) {
+                shown = Some(p);
+                on_percent(p);
+            }
+        }
+    })
+    .await
 }
 
 async fn fetch_text(url: &str) -> Result<String> {
@@ -278,7 +392,7 @@ fn make_executable(_: &Path) -> Result<()> {
 /// Downloads and installs `tools` into the app's own directory, checking each
 /// file against the checksum its release publishes. `say` receives what is
 /// happening, for display.
-pub async fn install(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> {
+pub async fn install(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result<()> {
     install_all(tools, say).await.map_err(|err| match err {
         Y2eError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => {
             failure("curl or tar is missing on this system.")
@@ -287,7 +401,7 @@ pub async fn install(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
     })
 }
 
-async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> {
+async fn install_all(tools: &[&str], say: impl Fn(Step) + Send + Sync) -> Result<()> {
     let dir = managed_dir().ok_or_else(|| failure("Data folder not found."))?;
     tokio::fs::create_dir_all(&dir).await?;
 
@@ -296,8 +410,8 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
             let brew = homebrew()
                 .filter(|_| *tool == "ffmpeg")
                 .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
-            say("Installing ffmpeg with Homebrew (this can take a few minutes)".to_string());
-            brew_install(brew, "ffmpeg").await?;
+            say(step("Installing ffmpeg with Homebrew", None));
+            brew_install(brew, "ffmpeg", &say).await?;
             continue;
         };
         let (base, sums) = if *tool == "yt-dlp" {
@@ -307,10 +421,16 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
         };
         let part = dir.join(format!("{file}.part"));
 
-        say(format!("Downloading {tool} ({}/{})", i + 1, tools.len()));
-        fetch(&format!("{base}/{file}"), &part).await?;
+        // The share of the whole installation that `part` of this tool's work is.
+        let overall = |part: f32| Some((i as f32 + part) / tools.len() as f32);
+        let label = format!("Downloading {tool} ({}/{})", i + 1, tools.len());
+        say(step(&label, overall(0.0)));
+        fetch(&format!("{base}/{file}"), &part, |p| {
+            say(step(&label, overall(p as f32 / 100.0 * 0.9)))
+        })
+        .await?;
 
-        say(format!("Verifying {tool}"));
+        say(step(format!("Verifying {tool}"), overall(0.92)));
         let listing = fetch_text(&format!("{base}/{sums}")).await?;
         let expected = expected_hash(&listing, file)
             .ok_or_else(|| failure(format!("Checksum for {file} not found.")))?;
@@ -321,7 +441,7 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
             )));
         }
 
-        say(format!("Installing {tool}"));
+        say(step(format!("Installing {tool}"), overall(0.96)));
         if *tool == "yt-dlp" {
             make_executable(&part)?;
             tokio::fs::rename(&part, dir.join(exe("yt-dlp"))).await?;
@@ -360,6 +480,29 @@ mod tests {
     fn keeps_the_tools_in_a_folder_of_its_own() {
         let dir = managed_dir().expect("a data folder");
         assert!(dir.ends_with("y2e/bin") || dir.ends_with(r"y2e\bin"));
+    }
+
+    #[test]
+    fn reads_the_percentage_from_curls_progress_bar() {
+        assert_eq!(
+            percent("######                                  15.2%"),
+            Some(15.2)
+        );
+        assert_eq!(percent("100.0%"), Some(100.0));
+        assert_eq!(percent("curl: (22) The requested URL returned error"), None);
+    }
+
+    #[tokio::test]
+    async fn pieces_are_split_at_returns_and_line_breaks() {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "printf 'a\\rb\\nc'"]);
+        let mut seen = Vec::new();
+        if run_watching(cmd, "sh", |p| seen.push(p.to_string()))
+            .await
+            .is_ok()
+        {
+            assert_eq!(seen, ["a", "b", "c"]);
+        }
     }
 
     #[test]

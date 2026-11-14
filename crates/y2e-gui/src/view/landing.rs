@@ -188,9 +188,14 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
         .child(url_pill(s, p, true));
 
     if s.is_loading_metadata {
-        stack = stack.child(loading_row("hero-loading", "Fetching video details", p));
+        stack = stack.child(loading_row(
+            "hero-loading",
+            "Fetching video details",
+            None,
+            p,
+        ));
     } else if let Some(phase) = &s.installing {
-        stack = stack.child(loading_row("hero-install", phase, p));
+        stack = stack.child(loading_row("hero-install", phase, s.install_fraction, p));
     } else if !s.missing_tools.is_empty() {
         let can_install = s
             .missing_tools
@@ -271,27 +276,34 @@ pub(super) fn hero(s: &State, p: &Palette) -> El {
 }
 
 /// An indeterminate bar with a caption, for work whose length is not known.
-fn loading_row(key: &str, label: &str, p: &Palette) -> El {
+/// `fraction`: how far along the work is, from 0 to 1. Without it a segment
+/// sweeps along the track until the work is done.
+fn loading_row(key: &str, label: &str, fraction: Option<f32>, p: &Palette) -> El {
     row()
         .key(key.to_string())
         .transition(Transition::opacity())
         .gap(14.0)
         .center_y()
         .child(
-            // A segment sweeps along the track until the work is done.
             row()
                 .w(150.0)
                 .h(4.0)
                 .radius(2.0)
                 .clip_rounded(2.0)
                 .fill(p.chip)
-                .child(
-                    el().w(54.0)
+                .child(match fraction {
+                    Some(f) => el()
+                        .w(150.0 * f.clamp(0.0, 1.0))
+                        .h_full()
+                        .radius(2.0)
+                        .fill(p.accent),
+                    None => el()
+                        .w(54.0)
                         .h_full()
                         .radius(2.0)
                         .fill(p.accent)
                         .looping(LoopSpec::slide(1.25, [-1.0, 0.0], [3.0, 0.0])),
-                ),
+                }),
         )
         .child(
             text(label.to_string())

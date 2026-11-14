@@ -160,7 +160,7 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 - When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
-- On macOS, `ffmpeg` is installed automatically only if Homebrew is present, and the installation can take several minutes without showing progress.
+- On macOS, `ffmpeg` is installed automatically only if Homebrew is present,, and its installation shows the current stage rather than a percentage.
 
 ## License
 

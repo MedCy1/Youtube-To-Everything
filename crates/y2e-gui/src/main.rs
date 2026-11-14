@@ -97,7 +97,10 @@ fn main() {
                             tokio::spawn(async move {
                                 let progress = handle.clone();
                                 let result = y2e_core::tools::install(&tools, move |phase| {
-                                    progress.update(move |s, _| s.installing = Some(phase));
+                                    progress.update(move |s, _| {
+                                        s.installing = Some(phase.text);
+                                        s.install_fraction = phase.fraction;
+                                    });
                                 })
                                 .await;
                                 handle.update(move |s, tx| {
