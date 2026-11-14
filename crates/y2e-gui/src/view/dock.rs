@@ -284,10 +284,17 @@ pub(super) fn size_hint(s: &State, p: &Palette) -> El {
     } else {
         "≈"
     };
-    text(format!("{prefix} {}", format_size(estimate)))
-        .font(figures(15.0, 600))
-        .color(p.text_dim)
+    // A fixed width, the widest figure there can be: otherwise the row wraps at
+    // a different window width depending on how many digits the size has.
+    row().w(SIZE_WIDTH).justify_end().child(
+        text(format!("{prefix} {}", format_size(estimate)))
+            .font(figures(15.0, 600))
+            .color(p.text_dim),
+    )
 }
+
+/// Room for "≈ 999 MB", the longest estimate (and "≈ 9.9 GB", in either language).
+const SIZE_WIDTH: f32 = 72.0;
 
 pub(super) fn gif_advice(s: &State, p: &Palette) -> Option<El> {
     let seconds = s.selected_seconds();
