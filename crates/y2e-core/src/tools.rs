@@ -222,16 +222,34 @@ fn percent(piece: &str) -> Option<f32> {
         .ok()
 }
 
-/// `brew install` announces each stage with a `==>` line.
+/// Like [`percent`], and the older form Homebrew's bar takes when it is not
+/// drawn on a terminal: `26.#############`.
+fn brew_percent(piece: &str) -> Option<u32> {
+    if let Some(p) = percent(piece) {
+        return Some(p as u32);
+    }
+    let (number, bar) = piece.split_once('.')?;
+    (bar.starts_with('#') && !number.is_empty())
+        .then(|| number.parse().ok())
+        .flatten()
+}
+
+/// `brew install` announces each stage with a `==>` line, and may draw a bar
+/// for a download under it. The bar restarts for each dependency, so it goes
+/// in the text and the progress bar keeps sweeping.
 async fn brew_install(brew: PathBuf, formula: &str, say: &impl Fn(Step)) -> Result<()> {
     let mut cmd = background(brew);
     cmd.args(["install", formula])
         .env("HOMEBREW_NO_AUTO_UPDATE", "1")
         .env("HOMEBREW_NO_ENV_HINTS", "1")
         .env("HOMEBREW_NO_INSTALL_CLEANUP", "1");
+    let mut stage = String::new();
     run_watching(cmd, "brew", |piece| {
-        if let Some(stage) = piece.strip_prefix("==>") {
-            say(step(format!("Homebrew: {}", stage.trim()), None));
+        if let Some(next) = piece.strip_prefix("==>") {
+            stage = format!("Homebrew: {}", next.trim());
+            say(step(&stage, None));
+        } else if let Some(p) = brew_percent(piece).filter(|_| !stage.is_empty()) {
+            say(step(format!("{stage} ({p}%)"), None));
         }
     })
     .await
@@ -490,6 +508,14 @@ mod tests {
         );
         assert_eq!(percent("100.0%"), Some(100.0));
         assert_eq!(percent("curl: (22) The requested URL returned error"), None);
+    }
+
+    #[test]
+    fn reads_homebrews_download_bar_in_both_forms() {
+        assert_eq!(brew_percent("26.#############################"), Some(26));
+        assert_eq!(brew_percent("###########   63.4%"), Some(63));
+        assert_eq!(brew_percent("==> Pouring ffmpeg--7.1.bottle.tar.gz"), None);
+        assert_eq!(brew_percent("Warning: something. Else"), None);
     }
 
     #[tokio::test]
