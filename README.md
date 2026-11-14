@@ -185,7 +185,6 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 ## Known limitations
 
-- When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
 - Screen reader support is built in but has not been tried with VoiceOver, Narrator, NVDA or Orca yet. Reports are welcome.
 - Cancelling a cut export stops `yt-dlp`, but on Windows the `ffmpeg` it started may keep running for a few seconds.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
