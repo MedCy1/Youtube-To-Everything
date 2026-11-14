@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 # The one place the version lives: scripts/release.sh bumps it.
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["MedCy1"]
 repository = "https://github.com/MedCy1/Youtube-To-Everything"

@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.0 (2026-11-14)
+
+
+### Features
+
+- Expose the interface to screen readers
+- Cancel an export, and keep a crash log
+- Download ffmpeg for macOS instead of asking for Homebrew
+
+### Build and CI
+
+- Ship installers for Windows, macOS and Debian
+- Keep Git Bash from rewriting the Inno Setup options
+
+### Documentation
+
+- Describe the installers and how to sign the macOS app
 ## v0.1.0 (2026-11-14)
 
 
