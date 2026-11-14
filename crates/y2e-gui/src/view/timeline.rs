@@ -1,7 +1,7 @@
 //! The waveform cut: drag handles, keyboard nudges and the pointer marks.
 
 use rune::tok::motion;
-use rune::{col, el, row, spacer, text, El};
+use rune::{col, el, row, spacer, text, El, Stagger, Transition};
 use rune_kit::{Kit, RollingText};
 use y2e_core::format_time_seconds;
 
@@ -39,17 +39,27 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         })
         .unwrap_or(3) as f32;
 
+    let light = s.settings.motion.is_light();
+    let rise = Stagger::new(0.012);
     let mut bars = row().w_full().h(64.0).gap(3.0).center_y();
     for index in 0..WAVE_BARS {
         let at = (index as f32 + 0.5) / WAVE_BARS as f32;
         let inside = at >= fa && at <= fb;
-        bars = bars.child(
-            el().grow(1.0)
-                .h(bar_height(index, seed))
-                .radius(2.0)
-                .fill(if inside { p.accent_hi } else { p.bar })
-                .motion(motion::SNAPPY),
-        );
+        let bar = el()
+            .key(format!("bar-{seed}-{index}"))
+            .grow(1.0)
+            .h(bar_height(index, seed))
+            .radius(2.0)
+            .fill(if inside { p.accent_hi } else { p.bar })
+            .motion(motion::SNAPPY);
+        // The bars rise one after the other when a video arrives. The performance
+        // mode leaves it out: it is dozens of small layers.
+        bars = bars.child(if light {
+            bar
+        } else {
+            bar.transition(Transition::offset(0.0, 18.0).combined(Transition::opacity()))
+                .enter_delay(0.3 + rise.delay(index, WAVE_BARS))
+        });
     }
 
     let selection = el()
