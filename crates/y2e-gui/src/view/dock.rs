@@ -1,9 +1,11 @@
 //! The glass dock: presets, size hints, the export button and its notices.
 
 use rune::tok::motion;
-use rune::{col, el, row, spacer, text, Beat, Color, El, LiveRegion, Sequence, Transition};
+use rune::{
+    col, el, row, spacer, text, Beat, Color, El, LiveRegion, LoopSpec, Sequence, Transition,
+};
 use rune_kit::{Kit, RollingText};
-use y2e_core::{format_time_seconds, DownloadPreset};
+use y2e_core::{format_time_seconds, DownloadPreset, ExportStage};
 
 use crate::gfx;
 use crate::i18n::t;
@@ -65,20 +67,78 @@ pub(super) fn completion_ring(s: &State, p: &Palette) -> El {
         .sequence(Sequence::new(RING))
 }
 
-/// The line under the percentage: speed and time left once known, and until then
-/// a word saying the export has started (the first seconds report nothing).
-fn progress_detail(s: &State, progress: f32) -> String {
-    let parts: Vec<&str> = [s.speed_str.trim(), s.eta_str.trim()]
-        .into_iter()
-        .filter(|value| !matches!(*value, "-" | "NA" | "N/A" | ""))
-        .collect();
-    if !parts.is_empty() {
-        parts.join(" · ")
-    } else if progress < 1.0 {
-        format!("{}…", t().preparing)
-    } else {
-        String::new()
+/// What the running export is doing, with the time left once it is known.
+fn stage_name(s: &State) -> &'static str {
+    match s.export_stage {
+        ExportStage::Preparing => t().preparing,
+        ExportStage::Downloading => t().stage_downloading,
+        ExportStage::Compressing => t().stage_compressing,
+        ExportStage::Converting => t().stage_converting,
     }
+}
+
+/// The line under the percentage: the stage, and the time left once known.
+fn stage_detail(s: &State) -> String {
+    match s.eta_str.trim() {
+        "-" | "NA" | "N/A" | "" => stage_name(s).to_string(),
+        eta => format!("{} · {eta}", stage_name(s)),
+    }
+}
+
+/// The thin bar along the top of the button: filled as far as the stage has got,
+/// or a sweeping segment while nothing can be measured yet.
+fn stage_bar(s: &State, p: &Palette, progress: f32) -> El {
+    let bar = el().pin(Some(0.0), None, Some(0.0), Some(0.0)).h(4.0);
+    if s.export_stage == ExportStage::Preparing {
+        return bar.child(
+            el().w(54.0)
+                .h_full()
+                .radius(2.0)
+                .fill(p.accent)
+                .looping(LoopSpec::slide(1.25, [-1.0, 0.0], [4.0, 0.0])),
+        );
+    }
+    bar.child(
+        row()
+            .w_full()
+            .h_full()
+            .child(
+                el().grow(progress)
+                    .h_full()
+                    .fill(p.accent)
+                    .motion(motion::SNAPPY),
+            )
+            .child(el().grow((100.0 - progress).max(0.0))),
+    )
+}
+
+/// The percentage and what is being done, or just the word while preparing.
+fn stage_label(s: &State, p: &Palette, k: &Kit, progress: f32) -> El {
+    let label = col().center().gap(0.0);
+    if s.export_stage == ExportStage::Preparing {
+        return fill_parent().center().child(
+            label.child(
+                text(format!("{}…", t().preparing))
+                    .font(face(17.0, 600))
+                    .color(p.text),
+            ),
+        );
+    }
+    fill_parent().center().child(
+        label
+            .child(
+                RollingText::new("export-progress", format!("{progress:.0} %"))
+                    .value(progress as f64)
+                    .font(figures(19.0, 700))
+                    .color(p.text)
+                    .build(k),
+            )
+            .child(
+                text(stage_detail(s))
+                    .font(figures(12.0, 500))
+                    .color(p.text_dim),
+            ),
+    )
 }
 
 pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
@@ -121,41 +181,8 @@ pub(super) fn export_button(s: &State, p: &Palette, k: &Kit) -> El {
     if s.is_downloading {
         button
             .range_value(progress as f64, 0.0, 100.0)
-            .child(
-                el().pin(Some(0.0), None, Some(0.0), Some(0.0))
-                    .h(4.0)
-                    .child(
-                        row()
-                            .w_full()
-                            .h_full()
-                            .child(
-                                el().grow(progress)
-                                    .h_full()
-                                    .fill(p.accent)
-                                    .motion(motion::SNAPPY),
-                            )
-                            .child(el().grow((100.0 - progress).max(0.0))),
-                    ),
-            )
-            .child(
-                fill_parent().center().child(
-                    col()
-                        .center()
-                        .gap(0.0)
-                        .child(
-                            RollingText::new("export-progress", format!("{progress:.0} %"))
-                                .value(progress as f64)
-                                .font(figures(19.0, 700))
-                                .color(p.text)
-                                .build(k),
-                        )
-                        .child(
-                            text(progress_detail(s, progress))
-                                .font(figures(12.0, 500))
-                                .color(p.text_dim),
-                        ),
-                ),
-            )
+            .child(stage_bar(s, p, progress))
+            .child(stage_label(s, p, k, progress))
     } else {
         button.child(
             fill_parent().center().child(

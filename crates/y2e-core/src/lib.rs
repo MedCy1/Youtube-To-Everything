@@ -9,7 +9,7 @@ pub mod tools;
 
 pub use engine::{DownloadOptions, Engine};
 pub use error::{InstallProblem, Result, Y2eError};
-pub use events::CoreEvent;
+pub use events::{CoreEvent, ExportStage};
 pub use metadata::{
     format_time_hhmmss, format_time_seconds, TimeRange, VideoChapter, VideoMetadata,
 };

@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::OnceLock;
 use y2e_core::{
-    format_time_seconds, CoreEvent, DownloadPreset, InstallProblem, TimeRange, VideoMetadata,
+    format_time_seconds, CoreEvent, DownloadPreset, ExportStage, InstallProblem, TimeRange,
+    VideoMetadata,
 };
 
 /// Hue of the brand coral, used until artwork supplies its own.
@@ -95,6 +96,8 @@ pub struct State {
     pub end_time_secs: u64,
     pub preset: DownloadPreset,
     pub progress_percent: f32,
+    /// What the running export is doing; its progress is `progress_percent`.
+    pub export_stage: ExportStage,
     pub speed_str: String,
     pub eta_str: String,
     pub downloaded_file: Option<PathBuf>,
@@ -187,6 +190,7 @@ impl Default for State {
             end_time_secs: 30,
             preset: DownloadPreset::MaxQuality,
             progress_percent: 0.0,
+            export_stage: ExportStage::default(),
             speed_str: "-".to_string(),
             eta_str: "-".to_string(),
             downloaded_file: None,
@@ -541,22 +545,31 @@ impl State {
         self.inspect_error = Some(err);
     }
 
+    /// Each stage of an export has its own progress, from 0.
+    fn begin_stage(&mut self, stage: ExportStage) {
+        self.export_stage = stage;
+        self.progress_percent = 0.0;
+        self.speed_str = "-".to_string();
+        self.eta_str = "-".to_string();
+    }
+
     pub fn apply_core_event(&mut self, event: CoreEvent) {
         match event {
             CoreEvent::DownloadStarted => {
                 self.is_downloading = true;
                 self.download_error = None;
-                self.progress_percent = 0.0;
-                self.speed_str = "-".to_string();
-                self.eta_str = "-".to_string();
+                self.begin_stage(ExportStage::Preparing);
             }
+            CoreEvent::StageChanged(stage) => self.begin_stage(stage),
             CoreEvent::Progress(update) => {
+                // The first report is the end of the preparation.
+                if self.export_stage == ExportStage::Preparing {
+                    self.export_stage = ExportStage::Downloading;
+                }
                 self.progress_percent = update.percent.clamp(0.0, 100.0);
                 self.speed_str = update.speed;
                 self.eta_str = update.eta;
             }
-            // The phase of an export is not shown: the progress bar says enough.
-            CoreEvent::StatusChanged(_) => {}
             CoreEvent::Finished { output_path } => {
                 self.is_downloading = false;
                 self.progress_percent = 100.0;
@@ -598,7 +611,7 @@ fn nudged(range: (u64, u64), total: u64, start: bool, delta: i64) -> (u64, u64) 
 #[cfg(test)]
 mod tests {
     use super::{nudged, State};
-    use y2e_core::{CoreEvent, ProgressUpdate, VideoChapter, VideoMetadata};
+    use y2e_core::{CoreEvent, ExportStage, ProgressUpdate, VideoChapter, VideoMetadata};
 
     fn with_chapters(chapters: &[(&str, f64, f64)]) -> State {
         State {
@@ -671,5 +684,26 @@ mod tests {
         s.apply_core_event(CoreEvent::DownloadStarted);
         assert_eq!(s.progress_percent, 0.0);
         assert_eq!((s.speed_str.as_str(), s.eta_str.as_str()), ("-", "-"));
+    }
+
+    #[test]
+    fn an_export_goes_through_its_stages_each_from_zero() {
+        let report = |percent| {
+            CoreEvent::Progress(ProgressUpdate {
+                percent,
+                speed: "1x".to_string(),
+                eta: "00:05".to_string(),
+                raw: String::new(),
+            })
+        };
+        let mut s = State::default();
+        s.apply_core_event(CoreEvent::DownloadStarted);
+        assert_eq!(s.export_stage, ExportStage::Preparing);
+        s.apply_core_event(report(60.0));
+        assert_eq!(s.export_stage, ExportStage::Downloading);
+        assert_eq!(s.progress_percent, 60.0);
+        s.apply_core_event(CoreEvent::StageChanged(ExportStage::Compressing));
+        assert_eq!(s.export_stage, ExportStage::Compressing);
+        assert_eq!((s.progress_percent, s.eta_str.as_str()), (0.0, "-"));
     }
 }
