@@ -78,6 +78,7 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         .w_full()
         .h(64.0)
         .child(bars)
+        .child(chapter_marks(s, p))
         .child(scrub_marks(s, p))
         .child(
             fill_parent().child(
@@ -138,6 +139,10 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         text(t().whole_hint).font(face(15.0, 500)).color(p.text_dim)
     };
 
+    let summary = match chapters_button(s, p) {
+        Some(button) => row().gap(10.0).center_y().child(summary).child(button),
+        None => row().center_y().child(summary),
+    };
     col().w_full().gap(10.0).child(track).child(
         row()
             .w_full()

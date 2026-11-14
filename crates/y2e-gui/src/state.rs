@@ -75,6 +75,7 @@ pub struct State {
     pub app_update_dismissed: bool,
     pub settings: Settings,
     pub settings_open: bool,
+    pub chapters_open: bool,
     /// Why the last attempt to choose a folder did not work.
     pub settings_error: Option<String>,
     /// The window is in front.
@@ -170,6 +171,7 @@ impl Default for State {
             app_update_dismissed: false,
             settings: Settings::default(),
             settings_open: false,
+            chapters_open: false,
             settings_error: None,
             focused: true,
             completed: 0,
@@ -403,6 +405,33 @@ impl State {
         true
     }
 
+    /// The chapters worth listing: at least two, each with some length left.
+    pub fn chapter_ranges(&self) -> Vec<(String, u64, u64)> {
+        let Some(meta) = &self.metadata else {
+            return Vec::new();
+        };
+        let total = self.duration();
+        let ranges: Vec<_> = meta
+            .chapters()
+            .iter()
+            .filter_map(|c| c.range(total).map(|(a, b)| (c.title.clone(), a, b)))
+            .collect();
+        if ranges.len() >= 2 {
+            ranges
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Keeps only that chapter. One that covers the whole video leaves the cut off.
+    pub fn select_chapter(&mut self, from: u64, to: u64) {
+        let total = self.duration();
+        self.start_time_secs = from;
+        self.end_time_secs = to;
+        self.enable_snipper = !(from == 0 && to >= total);
+        self.chapters_open = false;
+    }
+
     /// Whole video selected again: the cut is switched off.
     pub fn reset_range(&mut self) {
         self.start_time_secs = 0;
@@ -565,7 +594,32 @@ fn nudged(range: (u64, u64), total: u64, start: bool, delta: i64) -> (u64, u64) 
 
 #[cfg(test)]
 mod tests {
-    use super::nudged;
+    use super::{nudged, State};
+    use y2e_core::{VideoChapter, VideoMetadata};
+
+    fn with_chapters(chapters: &[(&str, f64, f64)]) -> State {
+        State {
+            metadata: Some(VideoMetadata {
+                id: "abc".into(),
+                title: "t".into(),
+                uploader: None,
+                duration: Some(100.0),
+                thumbnail: None,
+                chapters: Some(
+                    chapters
+                        .iter()
+                        .map(|(title, a, b)| VideoChapter {
+                            title: title.to_string(),
+                            start_seconds: *a,
+                            end_seconds: *b,
+                        })
+                        .collect(),
+                ),
+                webpage_url: None,
+            }),
+            ..State::default()
+        }
+    }
 
     #[test]
     fn keeps_the_cut_inside_the_video_and_non_empty() {
@@ -574,5 +628,31 @@ mod tests {
         assert_eq!(nudged((10, 20), 100, true, 50), (19, 20));
         assert_eq!(nudged((10, 20), 100, false, -50), (10, 11));
         assert_eq!(nudged((3, 20), 100, true, -10), (0, 20));
+    }
+
+    #[test]
+    fn a_single_chapter_is_not_worth_a_list() {
+        assert!(with_chapters(&[("all", 0.0, 100.0)])
+            .chapter_ranges()
+            .is_empty());
+        assert!(with_chapters(&[]).chapter_ranges().is_empty());
+    }
+
+    #[test]
+    fn picking_a_chapter_cuts_to_it_and_closes_the_list() {
+        let mut state = with_chapters(&[("a", 0.0, 40.0), ("b", 40.0, 100.0)]);
+        assert_eq!(state.chapter_ranges().len(), 2);
+        state.chapters_open = true;
+        state.select_chapter(40, 100);
+        assert!(state.enable_snipper);
+        assert_eq!((state.start_time_secs, state.end_time_secs), (40, 100));
+        assert!(!state.chapters_open);
+    }
+
+    #[test]
+    fn a_chapter_that_is_the_whole_video_leaves_the_cut_off() {
+        let mut state = with_chapters(&[("a", 0.0, 100.0), ("b", 100.0, 120.0)]);
+        state.select_chapter(0, 100);
+        assert!(!state.enable_snipper);
     }
 }

@@ -106,6 +106,9 @@ pub struct Strings {
     pub select_whole: &'static str,
     pub all: &'static str,
     pub whole_hint: &'static str,
+    pub chapters: &'static str,
+    pub chapters_hint: &'static str,
+    pub chapter_described: fn(&str, &str, &str) -> String,
 
     // Dock
     pub export: &'static str,
@@ -214,6 +217,9 @@ pub static ENGLISH: Strings = Strings {
     select_whole: "Select the whole video",
     all: "All",
     whole_hint: "Whole video. Drag across the waveform to cut.",
+    chapters: "Chapters",
+    chapters_hint: "Pick one to keep only that part of the video.",
+    chapter_described: |title, from, to| format!("{title}, from {from} to {to}"),
 
     export: "Export",
     export_progress: "Export progress",
@@ -319,6 +325,9 @@ pub static FRENCH: Strings = Strings {
     select_whole: "Sélectionner toute la vidéo",
     all: "Tout",
     whole_hint: "Vidéo entière. Faites glisser sur la forme d’onde pour découper.",
+    chapters: "Chapitres",
+    chapters_hint: "Choisissez-en un pour ne garder que cette partie de la vidéo.",
+    chapter_described: |title, from, to| format!("{title}, de {from} à {to}"),
 
     export: "Exporter",
     export_progress: "Progression de l’export",

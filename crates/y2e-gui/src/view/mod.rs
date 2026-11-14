@@ -8,12 +8,14 @@ use crate::report::explain;
 use crate::state::State;
 use crate::theme::{palette, Palette};
 
+mod chapters;
 mod dock;
 mod landing;
 mod settings;
 mod studio;
 mod timeline;
 
+use chapters::{chapter_marks, chapters_button, chapters_overlay};
 use dock::{dock, notice};
 use landing::{hero, logo, url_pill};
 use settings::{settings_button, settings_overlay};
@@ -155,5 +157,6 @@ pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
         .child(scene(s, &p))
         .child(fill_parent().child(layout.w_full().h_full()))
         .child(settings_button(&p))
+        .child(chapters_overlay(s, &p))
         .child(settings_overlay(s, &p))
 }

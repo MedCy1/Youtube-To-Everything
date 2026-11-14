@@ -10,6 +10,17 @@ pub struct VideoChapter {
     pub end_seconds: f64,
 }
 
+impl VideoChapter {
+    /// The whole seconds that contain this chapter, inside a video `total`
+    /// seconds long. `None` when nothing of it is left (a chapter with no
+    /// length, or one that starts after the end).
+    pub fn range(&self, total: u64) -> Option<(u64, u64)> {
+        let start = self.start_seconds.max(0.0).floor() as u64;
+        let end = (self.end_seconds.max(0.0).ceil() as u64).min(total);
+        (start < end).then_some((start, end))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VideoMetadata {
     pub id: String,
@@ -109,5 +120,30 @@ mod tests {
         assert_eq!(meta.id, "dQw4w9WgXcQ");
         assert_eq!(meta.duration_seconds(), 213);
         assert_eq!(meta.chapters().len(), 0);
+    }
+
+    fn chapter(start: f64, end: f64) -> VideoChapter {
+        VideoChapter {
+            title: "c".into(),
+            start_seconds: start,
+            end_seconds: end,
+        }
+    }
+
+    #[test]
+    fn a_chapter_covers_the_whole_seconds_around_it() {
+        assert_eq!(chapter(10.4, 20.2).range(100), Some((10, 21)));
+        assert_eq!(chapter(0.0, 30.0).range(100), Some((0, 30)));
+    }
+
+    #[test]
+    fn a_chapter_is_kept_inside_the_video() {
+        assert_eq!(chapter(90.0, 130.0).range(100), Some((90, 100)));
+        assert_eq!(chapter(120.0, 130.0).range(100), None);
+    }
+
+    #[test]
+    fn a_chapter_with_no_length_is_ignored() {
+        assert_eq!(chapter(5.0, 5.0).range(100), None);
     }
 }

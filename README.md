@@ -51,6 +51,10 @@ Dragging on the timeline selects the passage to keep. The whole video stays sele
 
 The estimated size is shown before you export. Nothing is ever blocked: a very large GIF is still possible, and y2e only suggests a shorter clip.
 
+### Chapters
+
+When a video has chapters, thin lines on the waveform show where each one begins, and the Chapters button lists them. Picking one selects exactly that part, ready to export on its own.
+
 ### An interface that follows the video
 
 The thumbnail fills the window and the accent colour is derived from its dominant hue, at a fixed lightness so text and controls stay readable whatever the video.
@@ -175,7 +179,9 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 ## Roadmap
 
-- Chapters, so a video can be cut by section.
+- Installing an update from inside the app, instead of opening the release page.
+- Builds signed for macOS and Windows, so the first launch shows no warning.
+- More languages. Adding one is a matter of filling in a list of texts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Known limitations
 
