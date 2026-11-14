@@ -100,7 +100,7 @@ y2e relies on [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) to read and fetch vid
 - If both are installed on your system, y2e uses them. On macOS it also looks in the Homebrew folders.
 - If one is missing, the start screen says so and offers to install it. That downloads about 190 MB and takes about 390 MB on disk. Each file is checked against the SHA-256 sum its release publishes before it is installed.
 - The tools land in `~/.local/share/y2e/bin` on Linux, `~/Library/Application Support/y2e/bin` on macOS and `%LOCALAPPDATA%\y2e\bin` on Windows.
-- No ffmpeg build is published for macOS, so there y2e installs `yt-dlp` and asks you to run `brew install ffmpeg` for the rest.
+- No ffmpeg build is published for macOS, so there y2e installs `yt-dlp` itself and gets `ffmpeg` through [Homebrew](https://brew.sh) (`brew install ffmpeg`, run for you) when Homebrew is installed. Without it, y2e asks you to install `ffmpeg` yourself.
 - At launch, y2e looks for a newer `yt-dlp` in the background and offers to update it. If your copy comes from a package manager, y2e tells you about the update and leaves the update to you.
 - A copy of `ffmpeg` installed by y2e is offered for renewal after four months.
 
@@ -160,7 +160,7 @@ Bug reports, ideas and pull requests are welcome. Please read [CONTRIBUTING.md](
 
 - When a cut is selected, `yt-dlp` hands the download to `ffmpeg`, which does not report progress. The export button stays at 0 % until the file is ready.
 - Builds and tests run on Linux, macOS and Windows in CI, but the interface has so far been used by hand on Linux only. Please report anything that looks wrong on the other two.
-- On macOS, `ffmpeg` has to come from Homebrew or another source: no build of it can be downloaded automatically.
+- On macOS, `ffmpeg` is installed automatically only if Homebrew is present, and the installation can take several minutes without showing progress.
 
 ## License
 

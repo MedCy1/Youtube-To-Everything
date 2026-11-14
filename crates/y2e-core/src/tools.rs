@@ -117,9 +117,27 @@ fn asset(tool: &str, os: &str, arch: &str) -> Option<&'static str> {
     })
 }
 
-/// Whether the app can fetch `tool` itself on this system.
+/// Homebrew, where it is installed (macOS only: it is how ffmpeg gets there).
+fn homebrew() -> Option<PathBuf> {
+    if OS != "macos" {
+        return None;
+    }
+    system_copy("brew")
+}
+
+/// Whether the app can get `tool` itself on this system: by download, or
+/// through Homebrew when it is there.
 pub fn installable(tool: &str) -> bool {
-    asset(tool, OS, ARCH).is_some()
+    asset(tool, OS, ARCH).is_some() || (tool == "ffmpeg" && homebrew().is_some())
+}
+
+async fn brew_install(brew: PathBuf, formula: &str) -> Result<()> {
+    let mut cmd = background(brew);
+    cmd.args(["install", formula])
+        .env("HOMEBREW_NO_AUTO_UPDATE", "1")
+        .env("HOMEBREW_NO_ENV_HINTS", "1")
+        .env("HOMEBREW_NO_INSTALL_CLEANUP", "1");
+    run_quiet(cmd, "brew").await
 }
 
 /// A tool that has a newer version worth installing.
@@ -274,8 +292,14 @@ async fn install_all(tools: &[&str], say: impl Fn(String) + Send) -> Result<()> 
     tokio::fs::create_dir_all(&dir).await?;
 
     for (i, tool) in tools.iter().enumerate() {
-        let file = asset(tool, std::env::consts::OS, std::env::consts::ARCH)
-            .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
+        let Some(file) = asset(tool, OS, ARCH) else {
+            let brew = homebrew()
+                .filter(|_| *tool == "ffmpeg")
+                .ok_or_else(|| failure(format!("No {tool} build for this system.")))?;
+            say("Installing ffmpeg with Homebrew (this can take a few minutes)".to_string());
+            brew_install(brew, "ffmpeg").await?;
+            continue;
+        };
         let (base, sums) = if *tool == "yt-dlp" {
             (YTDLP_BASE, "SHA2-256SUMS")
         } else {

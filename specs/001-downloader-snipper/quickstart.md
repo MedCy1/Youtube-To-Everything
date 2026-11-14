@@ -4,7 +4,7 @@
 
 - Linux, macOS or Windows
 - Rust 1.80 or later (`cargo`)
-- `yt-dlp` and `ffmpeg` on the `PATH`, or installed by the application on first launch (ffmpeg on Linux and Windows; on macOS it comes from Homebrew)
+- `yt-dlp` and `ffmpeg` on the `PATH`, or installed by the application on first launch (ffmpeg on Linux and Windows; on macOS through Homebrew when present)
 - `curl`
 
 ## Main commands
