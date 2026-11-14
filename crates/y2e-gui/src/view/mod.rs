@@ -1,6 +1,7 @@
 use rune::{col, el, spacer, text, Color, Cx, El, SurfaceFit, TextStyle, Transition};
 use rune_kit::Kit;
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::gfx;
 use crate::i18n::t;
@@ -21,6 +22,26 @@ use landing::{hero, logo, url_pill};
 use settings::{settings_button, settings_overlay};
 use studio::{title_block, top_bar};
 use timeline::timeline;
+
+/// Set while a card covers the screen. Rune blurs at most four elements in a
+/// frame, in drawing order, so the card (drawn last) would lose its blur to the
+/// ones under it, which the scrim hides anyway.
+static CARD_OPEN: AtomicBool = AtomicBool::new(false);
+
+/// `backdrop_blur`, skipped while a card is open.
+trait Frosted {
+    fn frosted(self, sigma: f32) -> Self;
+}
+
+impl Frosted for El {
+    fn frosted(self, sigma: f32) -> Self {
+        if CARD_OPEN.load(Ordering::Relaxed) {
+            self
+        } else {
+            self.backdrop_blur(sigma)
+        }
+    }
+}
 
 fn face(size: f32, weight: u16) -> TextStyle {
     TextStyle::new(size, weight.into())
@@ -92,6 +113,7 @@ fn scene(s: &State, p: &Palette) -> El {
 }
 
 pub fn app_view(s: &State, _: &mut Cx<State>) -> El {
+    CARD_OPEN.store(s.settings_open || s.chapters_open, Ordering::Relaxed);
     let p = palette(s.accent_hue);
     let k = Kit::neutral(true);
 

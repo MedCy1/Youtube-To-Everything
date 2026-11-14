@@ -44,7 +44,7 @@ pub(super) fn title_block(s: &State, p: &Palette) -> El {
                 .gap(8.0)
                 .center_y()
                 .radius(14.0)
-                .backdrop_blur(12.0)
+                .frosted(12.0)
                 .fill(p.glass.alpha(0.55))
                 .child(el().size(8.0, 8.0).radius(4.0).fill(p.accent_hi))
                 .child(text(length).font(figures(14.0, 500)).color(p.text)),

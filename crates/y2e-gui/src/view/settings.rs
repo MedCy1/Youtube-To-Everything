@@ -23,7 +23,7 @@ pub(super) fn settings_button(p: &Palette) -> El {
         .h(34.0)
         .px(16.0)
         .radius(17.0)
-        .backdrop_blur(12.0)
+        .frosted(12.0)
         .fill(p.glass.alpha(0.55))
         .center()
         .press_scale(0.96)
