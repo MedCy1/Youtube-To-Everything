@@ -77,6 +77,14 @@ Packages for Linux, macOS and Windows are published on the [Releases](https://gi
 
 ### Linux
 
+On Debian, Ubuntu and derivatives (Ubuntu 24.04 or Debian 13 and later), install the package:
+
+```bash
+sudo apt install ./y2e-vX.Y.Z-linux-amd64.deb
+```
+
+On other distributions, use the tarball:
+
 ```bash
 tar -xzf y2e-vX.Y.Z-linux-x86_64.tar.gz
 cd y2e-vX.Y.Z-linux-x86_64
@@ -87,11 +95,11 @@ sh install.sh
 
 ### macOS
 
-Unzip `y2e-vX.Y.Z-macos-universal.zip` and move `y2e.app` to Applications. The app runs on Apple silicon and Intel Macs, macOS 11 or later. It is not signed with an Apple developer certificate, so the first time, right-click the app and choose Open, or run `xattr -dr com.apple.quarantine /Applications/y2e.app`.
+Open `y2e-vX.Y.Z-macos-universal.dmg` and drag y2e to Applications. The app runs on Apple silicon and Intel Macs, macOS 11 or later. Until the app is signed with an Apple developer certificate, the first launch needs a right-click and Open, or `xattr -dr com.apple.quarantine /Applications/y2e.app`.
 
 ### Windows
 
-Unzip `y2e-vX.Y.Z-windows-x86_64.zip` and run `y2e-gui.exe`. Windows SmartScreen may warn about an unknown publisher the first time: choose More info, then Run anyway. To remove y2e, delete the folder, and the downloaded tools in `%LOCALAPPDATA%\y2e`.
+Run `y2e-vX.Y.Z-windows-x86_64-setup.exe`. It installs for the current user without asking for administrator rights, adds a Start menu entry and an uninstaller. A portable `.zip` with just the executable is published too. Windows SmartScreen may warn about an unknown publisher the first time: choose More info, then Run anyway. Uninstalling keeps the tools y2e downloaded, in `%LOCALAPPDATA%\y2e`; delete that folder to remove them.
 
 ## yt-dlp and ffmpeg
 

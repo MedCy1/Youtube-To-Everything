@@ -91,4 +91,17 @@ scripts/release.sh 0.2.0     # bumps the version, writes CHANGELOG.md, commits a
 git push --follow-tags       # the tag starts the release workflow
 ```
 
-The release workflow runs the tests, builds with the `dist` profile, and publishes the archive, its checksum and the release notes. A tag containing a hyphen, such as `v0.2.0-rc1`, is published as a pre-release. The script needs [`git-cliff`](https://git-cliff.org) (`cargo install git-cliff`).
+The release workflow runs the tests on the three systems, builds each package (tarball and `.deb`, `.dmg`, Windows installer and zip), and publishes them with their checksums and the release notes. A tag containing a hyphen, such as `v0.2.0-rc1`, is published as a pre-release. The script needs [`git-cliff`](https://git-cliff.org) (`cargo install git-cliff`).
+
+### Signing the macOS app
+
+Without secrets, the app only gets an ad-hoc signature and users have to approve it by hand. With an Apple Developer ID certificate, the workflow signs the app with the hardened runtime, notarizes the disk image and staples the ticket. Add these repository secrets:
+
+| Secret | Content |
+| --- | --- |
+| `APPLE_CERTIFICATE` | The "Developer ID Application" certificate exported as a `.p12`, encoded in base64 |
+| `APPLE_CERTIFICATE_PASSWORD` | The password chosen when exporting the `.p12` |
+| `APPLE_SIGNING_IDENTITY` | The identity name, such as `Developer ID Application: Name (TEAMID)` |
+| `APPLE_ID` | The Apple ID of the developer account |
+| `APPLE_TEAM_ID` | The ten-character team identifier |
+| `APPLE_APP_PASSWORD` | An app-specific password for that Apple ID |
