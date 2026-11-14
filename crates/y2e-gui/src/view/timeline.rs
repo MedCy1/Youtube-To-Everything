@@ -89,6 +89,7 @@ pub(super) fn timeline(s: &State, p: &Palette, k: &Kit) -> El {
         .h(64.0)
         .child(bars)
         .child(chapter_marks(s, p))
+        .child(chapter_preview(s, p))
         .child(scrub_marks(s, p))
         .child(
             fill_parent().child(

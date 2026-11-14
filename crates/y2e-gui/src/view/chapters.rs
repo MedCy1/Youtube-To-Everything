@@ -2,7 +2,7 @@
 //! show where they begin on the timeline.
 
 use rune::ScrollSpec;
-use rune::{col, el, row, text, El};
+use rune::{col, el, row, text, El, Stagger, Transition};
 use y2e_core::format_time_seconds;
 
 use crate::i18n::t;
@@ -32,6 +32,67 @@ pub(super) fn chapters_button(s: &State, p: &Palette) -> Option<El> {
             .focus_ring(2.0, 2.0, p.text)
             .child(text(t().chapters).font(face(13.0, 600)).color(p.text_dim))
             .on_press(|s: &mut State| s.chapters_open = true),
+    )
+}
+
+/// The whole video as a strip, one segment per chapter, with the one under the
+/// pointer lit and the chosen one solid.
+fn chapter_strip(s: &State, p: &Palette) -> El {
+    let chosen = s
+        .enable_snipper
+        .then_some((s.start_time_secs, s.end_time_secs));
+    let mut strip = row().w_full().h(8.0).gap(2.0).a11y_hidden();
+    for (index, (_, from, to)) in s.chapter_ranges().into_iter().enumerate() {
+        let fill = if s.chapter_preview == Some((from, to)) {
+            p.accent
+        } else if chosen == Some((from, to)) {
+            p.text
+        } else {
+            p.chip
+        };
+        strip = strip.child(
+            el().key(format!("segment-{index}"))
+                .grow(to.saturating_sub(from).max(1) as f32)
+                .h_full()
+                .radius(4.0)
+                .fill(fill)
+                .motion(motion::SNAPPY),
+        );
+    }
+    strip
+}
+
+/// The chapter under the pointer in the list, lit on the waveform.
+pub(super) fn chapter_preview(s: &State, p: &Palette) -> El {
+    let Some((from, to)) = s.chapter_preview else {
+        return el();
+    };
+    let total = s.duration().max(1) as f32;
+    let (fa, fb) = (from as f32 / total, (to as f32 / total).min(1.0));
+    fill_parent().child(
+        row()
+            .w_full()
+            .h_full()
+            .child(
+                el().grow((fa * 1000.0).max(0.0))
+                    .h_full()
+                    .motion(motion::SNAPPY),
+            )
+            .child(
+                el().key("chapter-preview")
+                    .grow(((fb - fa) * 1000.0).max(8.0))
+                    .h_full()
+                    .radius(12.0)
+                    .fill(p.text.alpha(0.3))
+                    .border(2.0, p.text)
+                    .transition(Transition::opacity())
+                    .motion(motion::SNAPPY),
+            )
+            .child(
+                el().grow(((1.0 - fb) * 1000.0).max(0.0))
+                    .h_full()
+                    .motion(motion::SNAPPY),
+            ),
     )
 }
 
@@ -73,10 +134,21 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .padding(6.0)
         .scroll_margin(6.0)
         .gap(6.0);
-    for (index, (title, from, to)) in s.chapter_ranges().into_iter().enumerate() {
+    let ranges = s.chapter_ranges();
+    let cascade = Stagger::new(0.025);
+    let count = ranges.len();
+    for (index, (title, from, to)) in ranges.into_iter().enumerate() {
         let (a, b) = (format_time_seconds(from), format_time_seconds(to));
         let on = current == Some((from, to));
-        list = list.child(
+        let entrance = |row: El| {
+            if s.settings.motion.is_light() {
+                row
+            } else {
+                row.transition(Transition::offset(0.0, 10.0).combined(Transition::opacity()))
+                    .enter_delay(0.12 + cascade.delay(index, count))
+            }
+        };
+        list = list.child(entrance(
             row()
                 .key(format!("chapter-{index}"))
                 .w_full()
@@ -105,8 +177,11 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
                         .font(figures(13.0, 500))
                         .color(if on { p.ink } else { p.text_faint }),
                 )
+                .on_hover_change(move |s: &mut State, inside, _| {
+                    s.chapter_preview = inside.then_some((from, to));
+                })
                 .on_press(move |s: &mut State| s.select_chapter(from, to)),
-        );
+        ));
     }
     let card = col()
         .key("chapters-card")
@@ -121,18 +196,19 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .radius(24.0)
         .glass(28.0, p.glass, super::settings::CARD_OPACITY)
         .border(1.0, p.text.alpha(0.12))
-        .modal(true, |s: &mut State| s.chapters_open = false)
+        .modal(true, |s: &mut State| s.close_chapters())
         .child(text(t().chapters).font(display(26.0, -0.6)).color(p.text))
         .child(
             text(t().chapters_hint)
                 .font(face(14.0, 400))
                 .color(p.text_faint),
         )
+        .child(chapter_strip(s, p))
         .child(list)
         .child(
             row().w_full().justify_end().child(
                 solid_button(t().done, "close-chapters", false, true, p)
-                    .on_press(|s: &mut State| s.chapters_open = false),
+                    .on_press(|s: &mut State| s.close_chapters()),
             ),
         );
     el().key("chapters-layer")

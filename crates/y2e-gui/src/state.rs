@@ -77,6 +77,8 @@ pub struct State {
     pub settings: Settings,
     pub settings_open: bool,
     pub chapters_open: bool,
+    /// The chapter under the pointer in the list, shown on the timeline.
+    pub chapter_preview: Option<(u64, u64)>,
     /// Why the last attempt to choose a folder did not work.
     pub settings_error: Option<String>,
     /// The window is in front.
@@ -180,6 +182,7 @@ impl Default for State {
             settings: Settings::default(),
             settings_open: false,
             chapters_open: false,
+            chapter_preview: None,
             settings_error: None,
             focused: true,
             completed: 0,
@@ -438,7 +441,12 @@ impl State {
         self.start_time_secs = from;
         self.end_time_secs = to;
         self.enable_snipper = !(from == 0 && to >= total);
+        self.close_chapters();
+    }
+
+    pub fn close_chapters(&mut self) {
         self.chapters_open = false;
+        self.chapter_preview = None;
     }
 
     /// Whole video selected again: the cut is switched off.
@@ -710,5 +718,15 @@ mod tests {
         s.apply_core_event(CoreEvent::StageChanged(ExportStage::Compressing));
         assert_eq!(s.export_stage, ExportStage::Compressing);
         assert_eq!((s.progress_percent, s.eta_str.as_str()), (0.0, "-"));
+    }
+
+    #[test]
+    fn choosing_a_chapter_drops_the_preview() {
+        let mut s = with_chapters(&[("A", 0.0, 10.0), ("B", 10.0, 20.0)]);
+        s.chapters_open = true;
+        s.chapter_preview = Some((10, 20));
+        s.select_chapter(10, 20);
+        assert!(!s.chapters_open);
+        assert_eq!(s.chapter_preview, None);
     }
 }

@@ -19,7 +19,7 @@ mod settings;
 mod studio;
 mod timeline;
 
-use chapters::{chapter_marks, chapters_button, chapters_overlay};
+use chapters::{chapter_marks, chapter_preview, chapters_button, chapters_overlay};
 use dock::{dock, notice};
 use landing::{hero, logo, url_pill};
 use settings::{settings_button, settings_overlay};
