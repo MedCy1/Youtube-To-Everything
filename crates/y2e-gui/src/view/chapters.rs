@@ -90,6 +90,7 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
                 .radius(14.0)
                 .fill(if on { p.text } else { p.chip })
                 .hover(hover_tint(p, on))
+                .motion(motion::SNAPPY)
                 .press_scale(0.99)
                 .role("button")
                 .label((t().chapter_described)(&title, &a, &b))

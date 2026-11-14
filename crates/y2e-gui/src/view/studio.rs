@@ -27,7 +27,7 @@ pub(super) fn title_block(s: &State, p: &Palette) -> El {
     };
     let uploader = meta.uploader.as_deref().unwrap_or(t().unknown_author);
     col()
-        .key("title")
+        .key(format!("title-{}", meta.id))
         .transition(Transition::offset(0.0, 28.0).combined(Transition::opacity()))
         .w_full()
         .gap(10.0)

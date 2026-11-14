@@ -136,6 +136,8 @@ fn stage_label(s: &State, p: &Palette, k: &Kit, progress: f32) -> El {
             )
             .child(
                 text(stage_detail(s))
+                    .key(format!("stage-{:?}", s.export_stage))
+                    .transition(Transition::opacity())
                     .font(figures(12.0, 500))
                     .color(p.text_dim),
             ),

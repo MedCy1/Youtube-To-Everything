@@ -213,6 +213,7 @@ fn format_chip(s: &State, p: &Palette, preset: DownloadPreset, name: &'static st
         .radius(17.0)
         .fill(if on { p.text } else { p.chip })
         .hover(hover_tint(p, on))
+        .motion(motion::SNAPPY)
         .center()
         .press_scale(0.96)
         .role("button")
@@ -238,6 +239,7 @@ fn languages(s: &State, p: &Palette) -> El {
             .radius(17.0)
             .fill(if on { p.text } else { p.chip })
             .hover(hover_tint(p, on))
+            .motion(motion::SNAPPY)
             .center()
             .press_scale(0.96)
             .role("button")
@@ -268,6 +270,7 @@ fn motions(s: &State, p: &Palette) -> El {
             .radius(17.0)
             .fill(if on { p.text } else { p.chip })
             .hover(hover_tint(p, on))
+            .motion(motion::SNAPPY)
             .center()
             .press_scale(0.96)
             .role("button")
@@ -295,8 +298,10 @@ fn switch(on: bool, p: &Palette) -> El {
     let knob = el()
         .size(20.0, 20.0)
         .radius(10.0)
-        .fill(if on { p.ink } else { p.text });
-    let track = row()
+        .fill(if on { p.ink } else { p.text })
+        .motion(motion::SNAPPY);
+    // The knob rides a gap that grows or shrinks, so it slides instead of jumping.
+    row()
         .key("pause-switch")
         .w(46.0)
         .h(26.0)
@@ -304,6 +309,7 @@ fn switch(on: bool, p: &Palette) -> El {
         .radius(13.0)
         .center_y()
         .fill(if on { p.accent } else { p.chip })
+        .motion(motion::SNAPPY)
         .hover(Color::WHITE.alpha(0.12))
         .role("switch")
         .label(t().pause_background_label)
@@ -311,10 +317,11 @@ fn switch(on: bool, p: &Palette) -> El {
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
         .press_scale(0.96)
-        .on_press(|s: &mut State| s.set_pause_when_unfocused(!s.settings.pause_when_unfocused));
-    if on {
-        track.justify_end().child(knob)
-    } else {
-        track.child(knob)
-    }
+        .on_press(|s: &mut State| s.set_pause_when_unfocused(!s.settings.pause_when_unfocused))
+        .child(
+            el().grow(if on { 1000.0 } else { 0.0 })
+                .h_full()
+                .motion(motion::SNAPPY),
+        )
+        .child(knob)
 }
