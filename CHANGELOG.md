@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.4.1 (2026-11-14)
+
+
+### Features
+
+- core: Show the progress of the Discord and GIF encoding
+
+### Bug fixes
+
+- core: Show the progress of an export cut from a video
+- Aim for Discord's 20 MB limit instead of 25 MB
+
+### Documentation
+
+- Drop the cut progress limitation from the README
 ## v0.4.0 (2026-11-14)
 
 

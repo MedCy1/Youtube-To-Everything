@@ -4123,7 +4123,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "y2e-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "dirs",
  "serde",
@@ -4135,7 +4135,7 @@ dependencies = [
 
 [[package]]
 name = "y2e-gui"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "dirs",
  "image",
