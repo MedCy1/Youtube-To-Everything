@@ -231,7 +231,7 @@ pub(super) fn size_hint(s: &State, p: &Palette) -> El {
     let Some(estimate) = s.preset.estimated_size_mb(seconds).filter(|_| seconds > 0) else {
         return el();
     };
-    let prefix = if s.preset == DownloadPreset::Discord25Mb {
+    let prefix = if s.preset == DownloadPreset::Discord20Mb {
         "≤"
     } else {
         "≈"
@@ -331,8 +331,8 @@ pub(super) fn dock(s: &State, p: &Palette, k: &Kit) -> El {
                         .child(preset_chip(
                             s,
                             p,
-                            DownloadPreset::Discord25Mb,
-                            "< 25 MB",
+                            DownloadPreset::Discord20Mb,
+                            "< 20 MB",
                             "Discord",
                         ))
                         .child(preset_chip(

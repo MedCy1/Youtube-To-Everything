@@ -90,7 +90,7 @@ impl Engine {
                     .arg("--audio-quality")
                     .arg("0");
             }
-            DownloadPreset::Discord25Mb => {
+            DownloadPreset::Discord20Mb => {
                 cmd.arg("-f")
                     .arg("bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b")
                     .arg("--merge-output-format")
@@ -201,10 +201,10 @@ impl Engine {
             last_destination.unwrap_or_else(|| options.output_dir.join("downloaded_media"));
 
         let final_path = match options.preset {
-            DownloadPreset::Discord25Mb => {
+            DownloadPreset::Discord20Mb => {
                 let _ = event_tx
                     .send(CoreEvent::StatusChanged(
-                        "Compressing for Discord (< 25 MB)…".to_string(),
+                        "Compressing for Discord (< 20 MB)…".to_string(),
                     ))
                     .await;
                 let discord_output =
@@ -282,7 +282,7 @@ impl Engine {
 /// exports are encoded afterwards, and fill what is left.
 fn download_share(preset: DownloadPreset) -> f32 {
     match preset {
-        DownloadPreset::Discord25Mb | DownloadPreset::GifMeme => 40.0,
+        DownloadPreset::Discord20Mb | DownloadPreset::GifMeme => 40.0,
         _ => 100.0,
     }
 }
@@ -325,7 +325,7 @@ async fn run_reporting(mut cmd: Command, total: u64, event_tx: &Sender<CoreEvent
             .and_then(|v| v.trim().parse::<f32>().ok())
         {
             let mut update = ffmpeg_progress(micros / 1e6, total, &speed, &line);
-            let from = download_share(DownloadPreset::Discord25Mb);
+            let from = download_share(DownloadPreset::Discord20Mb);
             update.percent = from + update.percent * (100.0 - from) / 100.0;
             let _ = event_tx.send(CoreEvent::Progress(update)).await;
         }

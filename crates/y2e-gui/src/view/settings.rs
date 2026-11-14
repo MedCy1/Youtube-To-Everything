@@ -88,7 +88,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .gap(8.0)
         .child(format_chip(s, p, DownloadPreset::MaxQuality, "MP4"))
         .child(format_chip(s, p, DownloadPreset::AudioMp3, "MP3"))
-        .child(format_chip(s, p, DownloadPreset::Discord25Mb, "Discord"))
+        .child(format_chip(s, p, DownloadPreset::Discord20Mb, "Discord"))
         .child(format_chip(s, p, DownloadPreset::GifMeme, "GIF"));
 
     let mut card = col()

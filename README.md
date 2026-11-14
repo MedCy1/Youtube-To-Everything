@@ -46,7 +46,7 @@ Dragging on the timeline selects the passage to keep. The whole video stays sele
 | --- | --- | --- |
 | Max quality | MP4 | The best video and audio streams, merged without re-encoding where possible. |
 | Audio | MP3 | The audio track alone, at the highest quality setting. |
-| Discord | MP4 under 25 MB | H.264 and AAC, with the video bitrate worked out from the length of the clip so the file fits the limit. |
+| Discord | MP4 under 20 MB | H.264 and AAC, with the video bitrate worked out from the length of the clip so the file fits the limit. |
 | Loop | GIF | 15 frames per second, 480 pixels wide, with an optimised palette. |
 
 The estimated size is shown before you export. Nothing is ever blocked: a very large GIF is still possible, and y2e only suggests a shorter clip.
