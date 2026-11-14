@@ -119,7 +119,8 @@ jobs:
               powershell -NoProfile -Command "Compress-Archive -Path '$name' -DestinationPath 'out/$name.zip'"
               version="${tag#v}"
               [ "$version" = "$tag" ] && version=0.0.0
-              "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DVersion=$version" "/DOutName=$name-setup" packaging/windows/y2e.iss
+              # Git Bash would turn the /D options into file paths.
+              MSYS2_ARG_CONV_EXCL="*" "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DVersion=$version" "/DOutName=$name-setup" packaging/windows/y2e.iss
               ;;
           esac
           cd out
