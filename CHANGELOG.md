@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.4 (2026-11-15)
+
+
+### Features
+
+- gui: Log how long the start takes, step by step
+
+### Bug fixes
+
+- gui: Keep the card's blur when the panes behind it are glass too
+- gui: Open and close the cards instantly again so the blur shows at once
 ## v0.4.3 (2026-11-15)
 
 
