@@ -110,6 +110,7 @@ pub struct State {
 impl State {
     /// The state at startup, with what the user saved last time.
     pub fn load() -> Self {
+        crate::crash::note("window ready, loading the state");
         let settings = Settings::load();
         settings.lang().select();
         Self {

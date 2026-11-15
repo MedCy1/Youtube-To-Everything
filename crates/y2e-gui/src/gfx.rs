@@ -72,6 +72,7 @@ fn layer(kind: u32, d: [f32; 4], shape: Shape, t: f32) -> Option<FxLayer> {
 pub struct StudioGfx {
     fx: Option<FxRenderer>,
     moving: bool,
+    frames: u32,
 }
 
 impl Compositor<State> for StudioGfx {
@@ -80,6 +81,8 @@ impl Compositor<State> for StudioGfx {
     }
 
     fn render(&mut self, f: &mut Frame<'_, State>) {
+        // The first frames are the ones that compile the shaders: time them.
+        let began = (self.frames < 3).then(std::time::Instant::now);
         let (device, queue, size) = (f.device, f.queue, f.size);
         let t = f.rt.t as f32;
         let marks = &f.rt.marks;
@@ -142,5 +145,14 @@ impl Compositor<State> for StudioGfx {
                 }
             },
         );
+        if let Some(began) = began {
+            self.frames += 1;
+            crate::crash::note(&format!(
+                "frame {} recorded in {} ms ({:?})",
+                self.frames,
+                began.elapsed().as_millis(),
+                f.format
+            ));
+        }
     }
 }

@@ -11,8 +11,31 @@ pub fn log_path() -> Option<PathBuf> {
         .map(|dir| dir.join("y2e.log"))
 }
 
+static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+
+/// One line in the log with the milliseconds since the program started, to see
+/// where a slow start spends its time.
+pub fn note(what: &str) {
+    let ms = START.get_or_init(std::time::Instant::now).elapsed().as_millis();
+    let Some(path) = log_path() else { return };
+    let _ = std::fs::create_dir_all(path.parent().unwrap_or(&path));
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(file, "[+{ms} ms] {what}");
+    }
+}
+
 /// Appends every panic, with the seconds since the Unix epoch, to the log.
 pub fn keep_a_log() {
+    note(&format!(
+        "--- start {} on {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    ));
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         previous(info);

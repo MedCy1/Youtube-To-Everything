@@ -161,6 +161,10 @@ fn scene(s: &State, p: &Palette) -> El {
 }
 
 pub fn app_view(s: &State, cx: &mut Cx<State>) -> El {
+    static FIRST: AtomicBool = AtomicBool::new(true);
+    if FIRST.swap(false, Ordering::Relaxed) {
+        crate::crash::note("first view built");
+    }
     CARD_OPEN.store(s.settings_open || s.chapters_open, Ordering::Relaxed);
     LIGHT.store(s.settings.motion.is_light(), Ordering::Relaxed);
     // Travel becomes a jump and opacity a short fade, as the system's own setting asks.

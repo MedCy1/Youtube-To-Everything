@@ -26,7 +26,9 @@ use crate::view::app_view;
 fn main() {
     crash::keep_a_log();
     let (action_tx, action_rx) = std::sync::mpsc::channel::<GuiAction>();
-    if y2e_core::tools::missing().is_empty() {
+    let missing = y2e_core::tools::missing();
+    crash::note(&format!("tools checked, {} missing", missing.len()));
+    if missing.is_empty() {
         let _ = action_tx.send(GuiAction::CheckUpdates);
     }
     let _ = action_tx.send(GuiAction::CheckAppUpdate);
@@ -185,5 +187,7 @@ fn main() {
         })
         .expect("Failed to spawn background worker thread");
 
+    crash::note("opening the window");
     app.run();
+    crash::note("closed");
 }
