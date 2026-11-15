@@ -16,7 +16,10 @@ static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new
 /// One line in the log with the milliseconds since the program started, to see
 /// where a slow start spends its time.
 pub fn note(what: &str) {
-    let ms = START.get_or_init(std::time::Instant::now).elapsed().as_millis();
+    let ms = START
+        .get_or_init(std::time::Instant::now)
+        .elapsed()
+        .as_millis();
     let Some(path) = log_path() else { return };
     let _ = std::fs::create_dir_all(path.parent().unwrap_or(&path));
     if let Ok(mut file) = std::fs::OpenOptions::new()

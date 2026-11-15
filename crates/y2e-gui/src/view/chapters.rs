@@ -213,15 +213,14 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         )
         .child(chapter_strip(s, p))
         .child(list)
-        .child(
-            row().w_full().justify_end().child(
-                solid_button(t().done, "close-chapters", false, true, p)
-                    .on_press_tx(|s: &mut State, tx| {
-                        tx.instant();
-                        s.close_chapters();
-                    }),
+        .child(row().w_full().justify_end().child(
+            solid_button(t().done, "close-chapters", false, true, p).on_press_tx(
+                |s: &mut State, tx| {
+                    tx.instant();
+                    s.close_chapters();
+                },
             ),
-        );
+        ));
     el().key("chapters-layer")
         .absolute(0.0, 0.0)
         .w_full()
