@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.4.3 (2026-11-15)
+
+
+### Features
+
+- gui: Add an Animations setting with reduced and performance modes
+- gui: Answer the pointer on every control
+- gui: Make the switch, the chips and the export stage animate alike
+- gui: Let the waveform rise bar by bar when a video arrives
+- gui: Slide the settings and chapter cards in and fade the scrim
+- gui: Push the artwork in slowly behind the glass
+- gui: Preview a chapter before choosing it
+
+### Bug fixes
+
+- gui: Stop the dock buttons re-entering when the GIF advice comes and goes
+- gui: Keep a long pasted text inside the link field
+- gui: Wrap the dock at the same width whatever the estimated size
 ## v0.4.2 (2026-11-14)
 
 
