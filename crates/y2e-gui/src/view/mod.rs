@@ -40,6 +40,8 @@ trait Frosted {
     /// A glass pane: blurred and tinted, or in the performance mode just more
     /// opaque, so the text stays readable without the blur.
     fn glass(self, sigma: f32, tint: Color, alpha: f32) -> Self;
+    /// `glass` for a card itself, which is blurred even while it is the one open.
+    fn card_glass(self, sigma: f32, tint: Color, alpha: f32) -> Self;
 }
 
 impl Frosted for El {
@@ -52,6 +54,16 @@ impl Frosted for El {
     }
 
     fn glass(self, sigma: f32, tint: Color, alpha: f32) -> Self {
+        if CARD_OPEN.load(Ordering::Relaxed) {
+            // Behind a card the pane is hidden by the scrim; its blur would use up
+            // one of the four the card needs.
+            self.fill(tint.alpha(alpha))
+        } else {
+            self.card_glass(sigma, tint, alpha)
+        }
+    }
+
+    fn card_glass(self, sigma: f32, tint: Color, alpha: f32) -> Self {
         if LIGHT.load(Ordering::Relaxed) {
             self.fill(tint.alpha(alpha.max(0.97)))
         } else {

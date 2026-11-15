@@ -104,7 +104,7 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .py(24.0)
         .gap(22.0)
         .radius(24.0)
-        .glass(28.0, p.glass, CARD_OPACITY)
+        .card_glass(28.0, p.glass, CARD_OPACITY)
         .border(1.0, p.text.alpha(0.12))
         .child(text(t().settings).font(display(26.0, -0.6)).color(p.text))
         .child(setting_row(
