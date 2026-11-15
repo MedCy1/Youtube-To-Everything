@@ -31,7 +31,10 @@ pub(super) fn chapters_button(s: &State, p: &Palette) -> Option<El> {
             .focusable(true)
             .focus_ring(2.0, 2.0, p.text)
             .child(text(t().chapters).font(face(13.0, 600)).color(p.text_dim))
-            .on_press(|s: &mut State| s.chapters_open = true),
+            .on_press_tx(|s: &mut State, tx| {
+                tx.instant();
+                s.chapters_open = true;
+            }),
     )
 }
 
@@ -180,12 +183,14 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
                 .on_hover_change(move |s: &mut State, inside, _| {
                     s.chapter_preview = inside.then_some((from, to));
                 })
-                .on_press(move |s: &mut State| s.select_chapter(from, to)),
+                .on_press_tx(move |s: &mut State, tx| {
+                    tx.instant();
+                    s.select_chapter(from, to);
+                }),
         ));
     }
     let card = col()
         .key("chapters-card")
-        .transition(Transition::offset(0.0, super::settings::SLIDE))
         .role("dialog")
         .label(t().chapters)
         .w_full()
@@ -196,7 +201,10 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .radius(24.0)
         .card_glass(28.0, p.glass, super::settings::CARD_OPACITY)
         .border(1.0, p.text.alpha(0.12))
-        .modal(true, |s: &mut State| s.close_chapters())
+        .modal_tx(true, |s: &mut State, tx| {
+            tx.instant();
+            s.close_chapters();
+        })
         .child(text(t().chapters).font(display(26.0, -0.6)).color(p.text))
         .child(
             text(t().chapters_hint)
@@ -208,7 +216,10 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .child(
             row().w_full().justify_end().child(
                 solid_button(t().done, "close-chapters", false, true, p)
-                    .on_press(|s: &mut State| s.close_chapters()),
+                    .on_press_tx(|s: &mut State, tx| {
+                        tx.instant();
+                        s.close_chapters();
+                    }),
             ),
         );
     el().key("chapters-layer")
@@ -217,7 +228,6 @@ pub(super) fn chapters_overlay(s: &State, p: &Palette) -> El {
         .h_full()
         .child(
             el().key("chapters-scrim")
-                .transition(Transition::opacity())
                 .absolute(0.0, 0.0)
                 .w_full()
                 .h_full()

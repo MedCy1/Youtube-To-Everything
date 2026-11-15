@@ -14,10 +14,9 @@ use super::*;
 /// How opaque the glass cards are.
 pub(super) const CARD_OPACITY: f32 = 0.88;
 
-// A card slides rather than fades: while an element fades, Rune draws it as one
-// isolated layer, and a backdrop blur in a layer has nothing behind it to blur.
-// The scrim has no blur, so it can fade.
-pub(super) const SLIDE: f32 = 36.0;
+// Opening and closing are instant: while a card moves or fades, the blur behind
+// it arrives up to a second late (Rune draws it in an isolated layer, and a
+// backdrop blur there has nothing behind it to blur).
 
 /// The button that opens it, in the top right corner of every screen.
 pub(super) fn settings_button(p: &Palette) -> El {
@@ -35,7 +34,10 @@ pub(super) fn settings_button(p: &Palette) -> El {
         .focusable(true)
         .focus_ring(2.0, 2.0, p.text)
         .child(text(t().settings).font(face(14.0, 600)).color(p.text))
-        .on_press(|s: &mut State| s.settings_open = true)
+        .on_press_tx(|s: &mut State, tx| {
+            tx.instant();
+            s.settings_open = true;
+        })
 }
 
 /// The scrim and the card, when settings are open.
@@ -95,7 +97,6 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
 
     let mut card = col()
         .key("settings-card")
-        .transition(Transition::offset(0.0, SLIDE))
         .role("dialog")
         .label(t().settings)
         .w_full()
@@ -137,7 +138,10 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
             motions(s, p),
             p,
         ));
-    card = card.modal(true, |s: &mut State| s.settings_open = false);
+    card = card.modal_tx(true, |s: &mut State, tx| {
+        tx.instant();
+        s.settings_open = false;
+    });
     if let Some(error) = &s.settings_error {
         card = card.child(
             text(error.clone())
@@ -150,7 +154,10 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         row().w_full().justify_end().child(
             solid_button(t().done, "close-settings", false, false, p)
                 .default_button()
-                .on_press(|s: &mut State| s.settings_open = false),
+                .on_press_tx(|s: &mut State, tx| {
+                    tx.instant();
+                    s.settings_open = false;
+                }),
         ),
     );
 
@@ -160,7 +167,6 @@ pub(super) fn settings_overlay(s: &State, p: &Palette) -> El {
         .h_full()
         .child(
             el().key("settings-scrim")
-                .transition(Transition::opacity())
                 .absolute(0.0, 0.0)
                 .w_full()
                 .h_full()
